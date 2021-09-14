@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cmath>
 
-#include "eigen3/Eigen/Dense"
-#include "eigen3/Eigen/Geometry"
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
 
 using std::cout;
 using std::endl;

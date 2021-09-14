@@ -32,6 +32,9 @@
 #include "shared/ros/ros_helpers.h"
 #include "navigation.h"
 #include "visualization/visualization.h"
+#include <cmath>
+#include <iostream>
+#include <numeric>
 
 using Eigen::Vector2f;
 using amrl_msgs::AckermannCurvatureDriveMsg;
@@ -104,6 +107,30 @@ void Navigation::ObservePointCloud(const vector<Vector2f>& cloud,
   point_cloud_ = cloud;                                     
 }
 
+void Navigation::one_d_toc_calc(float x_total){
+    // 1-D TIME OPTIMAL CONTROLLER DESIGN
+    // Given Variables
+    int const v_max = 1; // m/s, maximum velocity
+    int const a = 4;     // m/s^2, maximum acceleration
+    int const d = 4;     // m/s^2, maximum deacceleration
+    float t2 {0};          // time used to travel at constant velocity
+
+    // 1-D TOC
+    float t1 {v_max/a};         // time taken to reach constant velocity
+    float x1 {pow(v_max,2)/(2*a)}; // distance traveled while accelerating
+    float x2 {t2*v_max};        // distance traveled while at constant velocity
+    float x3 {pow(v_max, 2)/(2*d)}; // distance traveled while deaccelerating
+
+    std::cout << "x1: " << x1 << std::endl
+              << "x3: " << x3 << std::endl; 
+
+    // Calculating t2
+    t2 = (x_total - x1 - x3)/v_max;
+
+    std::cout << "Time Required To Travel " << x_total << " m is: " << t2 << "s" << std::endl;
+}
+
+
 void Navigation::Run() {
   // This function gets called 20 times a second to form the control loop.
   
@@ -118,6 +145,8 @@ void Navigation::Run() {
   // Feel free to make helper functions to structure the control appropriately.
   
   // The latest observed point cloud is accessible via "point_cloud_"
+  
+
 
   // Eventually, you will have to set the control values to issue drive commands:
   // drive_msg_.curvature = ...;
