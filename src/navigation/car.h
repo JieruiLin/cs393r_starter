@@ -13,7 +13,10 @@ private:
     float wheelbase; 
     float buffer;
     float length_axle_to_bumper; 
-    float length_axle_to_door;   
+    float length_axle_to_door;
+    int const vel_max {1}; // m/s, max velocity
+    int const acl_max {4}; // m/s^2, maximum acceleration
+    int const dcl_max {4}; // m/s^2, maxium deacceleration
 
     // Car Corner (x, y) coordinates from centroid of car (rear axle) - with buffer added in
     Eigen::Vector2f driv_frnt_xy;
@@ -39,6 +42,8 @@ public:
     float get_curv_pass_frnt (const float &steering_angle);
     float get_curv_driv_rear (const float &steering_angle);
     float get_curv_pass_rear (const float &steering_angle);
+
+    float toc(float dt, float vel_current, float arc_length);
 };
 
 #endif // _CAR_H_

@@ -1,4 +1,5 @@
 #include "car.h"
+#include <iostream>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 
@@ -69,4 +70,88 @@ float Car::get_curv_pass_rear (const float &steering_angle)
     return get_curvature(r_pass_rear);
 }
 
+// 1-D Time Optimal Control
+float Car::toc(float dt, float vel_current, float arc_length) 
+{
+    
+    // ============================================================================
+    // if car is STOPPED, ACCELERATING, or DECELERATING
+    if (vel_current < vel_max)
+    {
+        float vel_new = vel_current + (acl_max * dt);          // new velocity if you still need to get to max vel
+        float dist_traveled = 0.5*(vel_current + vel_new)*dt;  // hypotethical distance traveled if commanded new velocity
+        float dist_left = arc_length - dist_traveled;          // hypotethical distance left on the free path length with new velocity
+        float dist_to_dcl = pow(vel_new,2)/(2*dcl_max);        // distance needed to decelerate based on new velocity
+        std::cout << "> vel_new: " << vel_new
+                  << "; dist_traveled: " << dist_traveled
+                  << "; dist_left: " << dist_left
+                  << "; dist_to_dcl: " << dist_to_dcl 
+                  << std::endl;
+        
+        // If distance needed to stop is greater than the 
+        // distance left on the curvature arc
+        if (dist_to_dcl > dist_left) 
+        {
+            // set dist needed to decelerate at input velocity
+            float dist_to_dcl_current = pow(vel_current,2) / (2*dcl_max);
+
+            // STOP: if the distance needed to stop at the current velocity
+            // is greater than the distance needed to get to the end of the arc
+            if (dist_to_dcl_current > arc_length)
+            {
+                return 0;
+            }
+            // DECELERATE: 
+            else
+            {
+                return vel_current - (dcl_max*dt);
+            }
+        }
+
+        // ACCELERATE: If the distance needed to stop is less
+        // than or equal to the distance left to travel
+        else if (dist_to_dcl <= dist_left)
+        {
+            return vel_current + (acl_max*dt);
+        }
+        else
+            return 0;
+    }
+
+    // ===========================================================================
+    // if car is at MAX VELOCITY
+
+    else if (vel_current >= vel_max)
+    {
+        vel_current = vel_max;
+        float dist_traveled = vel_max*dt;                // distance traveled at constant velocity based on time
+        float dist_left = arc_length - dist_traveled;    // distance left on path 
+        float dist_to_dcl = pow(vel_max,2)/(2*dcl_max);  // distance needed to decelerate
+        std::cout << "> dist_traveled: " << dist_traveled
+                  << "; dist_left: " << dist_left
+                  << "; dist_to_dcl: " << dist_to_dcl 
+                  << std::endl;
+        
+        // if distance needed to decelerate is greater 
+        // than the arc length, ignore
+        if (dist_to_dcl > arc_length)
+            return 0;
+        
+        // if the distance needed to decelerate is greater
+        // than the distance left to travel on free path length, intiate deceleration
+        else if (dist_to_dcl > dist_left)
+            return vel_current - (dcl_max*dt);
+
+        // if the distance is less than or equal to the 
+        // distance left, continue at max velocity
+        else if (dist_to_dcl <= dist_left)
+            return vel_max;
+        else
+            return 0;
+    }
+    else
+    {
+        return 0;
+    }
+}
 
