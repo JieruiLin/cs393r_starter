@@ -47,6 +47,7 @@
 #include "shared/ros/ros_helpers.h"
 
 #include "navigation.h"
+#include "car.h"
 
 using amrl_msgs::Localization2DMsg;
 using math_util::DegToRad;
@@ -83,8 +84,26 @@ void LaserCallback(const sensor_msgs::LaserScan& msg) {
   // Location of the laser on the robot. Assumes the laser is forward-facing.
   const Vector2f kLaserLoc(0.2, 0);
 
+  // ===============================================================================================
+  // Constructing Point Cloud from Laser Scan
   static vector<Vector2f> point_cloud_;
-  // TODO Convert the LaserScan to a point cloud
+
+  float theta = msg.angle_min; // start interation at min angle
+  int it {0};
+  
+  for (auto r:msg.ranges)
+  {
+    if(r < (0.95*msg.range_max) && r > msg.range_min)
+    {
+      point_cloud_.push_back(Vector2f{r*cos(theta)+kLaserLoc[0], r*sin(theta)+kLaserLoc[1]});
+      // Print statement to check point cloud points
+      //std::cout << "[x: " << point_cloud_[it].x() << "; y: " << point_cloud_[it].y() << std::endl;
+    }
+    theta += msg.angle_increment;
+    it++;
+  }
+  // ===============================================================================================
+
   navigation_->ObservePointCloud(point_cloud_, msg.header.stamp.toSec());
   last_laser_msg_ = msg;
 }
@@ -125,6 +144,7 @@ void LocalizationCallback(const amrl_msgs::Localization2DMsg msg) {
 }
 
 int main(int argc, char** argv) {
+
   google::ParseCommandLineFlags(&argc, &argv, false);
   signal(SIGINT, SignalHandler);
   // Initialize ROS.

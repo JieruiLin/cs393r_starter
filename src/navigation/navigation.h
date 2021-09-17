@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "eigen3/Eigen/Dense"
+#include "car.h"
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
@@ -66,7 +67,12 @@ class Navigation {
   void SetNavGoal(const Eigen::Vector2f& loc, float angle);
 
   void one_d_toc_calc(float x_total);
+
+  // Assignment 1 Additions
+  float TOC(float dt, float vel_current, float arc_length, float dist_traveled);
+
   
+
  private:
 
   // Whether odometry has been initialized.
@@ -98,6 +104,7 @@ class Navigation {
   Eigen::Vector2f nav_goal_loc_;
   // Navigation goal angle.
   float nav_goal_angle_;
+
 
   
 

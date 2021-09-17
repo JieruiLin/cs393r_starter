@@ -43,7 +43,7 @@ public:
     float get_curv_driv_rear (const float &steering_angle);
     float get_curv_pass_rear (const float &steering_angle);
 
-    float toc(float dt, float vel_current, float arc_length);
+    float TOC(float dt, float vel_current, float arc_length, float dist_traveled);
 };
 
 #endif // _CAR_H_
