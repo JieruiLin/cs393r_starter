@@ -189,19 +189,19 @@ void Navigation::predictCollisions(PathOption& path){
 		// distance to obstacle from turning center
 		float r_obstacle = (turning_center - obs_loc).norm();
 		// Check if point will obstruct car
-		if (obs_radius > r_min && obs_radius < r_max) {
+		if (r_obstacle > r_min && r_obstacle < r_max) {
 			Vector2f p_current;
 		
 			// Inner side collision
-			if (obs_radius < r_middle) {
-				float beta = acos((Sign(radius)*radius-car_width_/2-padding_)/obs_radius);
-			}else if (obs_radius > rdif) {
+			if (r_obstacle < r_middle) {
+				float beta = acos((Sign(radius)*radius-car_width_/2-padding_)/r_obstacle);
+			}else if (r_obstacle > rdif) {
 				// Front side collision
-				float beta = asin(((wheelbase_+car_length_)/2+padding_)/obs_radius);
+				float beta = asin(((wheelbase_+car_length_)/2+padding_)/r_obstacle);
 			}
 
 			// calculate alpha + beta
-			float sum_alpha_beta = acos(obs_loc[0]/obs_radius);
+			float sum_alpha_beta = acos(obs_loc[0]/r_obstacle);
 			float alpha = sum_alpha_beta - beta
 			// free path length is the arc length traversed by wheelbase
 			float fpl_current = Sign(radius)*alpha*radius;
@@ -219,8 +219,29 @@ void Navigation::predictCollisions(PathOption& path){
 	path.end_point = p_end;
 }
 
-// TODO
+// clearance is defined as the minimum distance from any point on the free path length to
 void Navigation::calculateClearance(PathOption &path){
+	float radius = 1/path.curvature;
+	float alpha = path.free_path_length * path.curvature
+	float min_clearance = 1000
+
+	Vector2f turning_center(0,radius);
+	Vector2f closest_point(0,0);
+	for (const auto &obs : ObstacleList_){
+		Vector2f obs_point = Odom2BaseLink(obs.loc);
+		float r_obstacle = (turning_center - obs_loc).norm();
+		// check if obstacle is inside the cone defined by RC, start location and final location
+		float angle_obstacle = acos(obs_point.x()/r_obstacle);
+		if (angle < alpha){
+			float clearance = abs((turning_center-obs_point).norm() - abs(radius));
+			if (clearance < min_clearance){
+				min_clearance = clearance;
+				closest_point = obs_point;
+			}
+		}
+	}
+	path.clearance = min_clearance;
+	path.closest_point = closest_points;
 }
 
 // select best path based on scoring function
@@ -237,20 +258,24 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 
 	vector<double> free_path_length_array;
 	vector<double> dist_to_goal_array;
+	vector<double> clearance_array;
 
 	// save the range of each variable for normalize in the scoring function
 	float max_free_path_length = 0;
 	float min_dist_to_goal = 0;
+	float max_clearance = 0
 
 	for (auto &path : Paths_)
 	{
 		predictCollisions(path);
 		trimPath(path, goal_loc);
+		calculateClearance(path);
 
 		path.dist_to_goal = (path.end_point - goal_loc).norm();
 
 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
+		max_clearance = td::max(path.clearance, max_clearance);
 
 		free_path_length_vec.push_back(path.free_path_length);
 		dist_to_goal_vec.push_back(path.dist_to_goal);
