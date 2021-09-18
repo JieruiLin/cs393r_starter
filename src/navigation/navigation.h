@@ -36,10 +36,18 @@ struct PathOption {
   float curvature;
   float clearance;
   float free_path_length;
+  float dist_to_goal;
+  float cost;
   Eigen::Vector2f obstruction;
   Eigen::Vector2f closest_point;
+  Eigen::Vector2f end_point;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
+
+struct Obstacle {
+  Eigen::Vector2f loc;
+  double timestamp;
+}
 
 class Navigation {
  public:
@@ -65,7 +73,26 @@ class Navigation {
   // Used to set the next target pose.
   void SetNavGoal(const Eigen::Vector2f& loc, float angle);
 
+  // Transform from local to global
+  Eigen::Vector2f BaseLink2Odom(Eigen::Vector2f p);
+
+  // Transform from global to local
+  Eigen::Vector2f Odom2BaseLink(Eigen::Vector2f p);
+
  private:
+
+  /* ------- Local Planning ---------*/
+
+  // List of all obstacles
+  std::list<Obstacle> ObstacleList_;
+  // List of all paths
+  std::vector<PathOption> Paths_;
+  // free path length weight
+  float free_path_length_weight_;
+  // dist to goal weight
+  float distance_to_goal_weight_;
+  // clearance weight
+  float clearance_weight_;
 
   // Whether odometry has been initialized.
   bool odom_initialized_;
