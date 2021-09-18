@@ -48,7 +48,7 @@ struct PathOption {
 struct Obstacle {
   Eigen::Vector2f loc;
   double timestamp;
-}
+};
 
 class Navigation {
  public:
@@ -133,7 +133,31 @@ class Navigation {
   // Navigation goal angle.
   float nav_goal_angle_;
 
+
+  // Frank Additions
+  // rotation matrix
+  Eigen::Matrix2f R_odom2base_;
+
+  // Visualization of Obstacles
+  void VisObstacles();
+
+  // Sample Paths
+  void samplePaths(float num);
+
+  void trimPath(PathOption &path, Eigen::Vector2f goal);
+
+  void predictCollisions(PathOption& path);
+
+  void calculateClearance(PathOption &path);
+
+  Eigen::Vector2f P_center;
+
+  PathOption getBestPath(Eigen::Vector2f goal_loc);
+
+  // Definition of Car
   Car car_;
+
+
 
   
 
