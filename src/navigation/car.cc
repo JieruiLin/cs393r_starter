@@ -70,7 +70,6 @@ float Car::get_curv_pass_rear (const float &steering_angle)
     return get_curvature(r_pass_rear);
 }
 
-// 1-D TOC
 float Car::TOC(float dt, float vel_current, float arc_length, float dist_traveled) 
 {
     // Car Parameters

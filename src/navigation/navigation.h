@@ -73,6 +73,8 @@ class Navigation {
 
   
 
+  
+
  private:
 
   // Whether odometry has been initialized.
@@ -105,6 +107,7 @@ class Navigation {
   // Navigation goal angle.
   float nav_goal_angle_;
 
+  Car car_;
 
   
 

@@ -36,6 +36,8 @@
 #include <iostream>
 #include <numeric>
 #include "car.h"
+#include <chrono>
+#include <math.h> 
 
 using Eigen::Vector2f;
 using amrl_msgs::AckermannCurvatureDriveMsg;
@@ -45,6 +47,12 @@ using std::vector;
 
 using namespace math_util;
 using namespace ros_helpers;
+
+using std::cout; using std::endl;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
 
 namespace {
 ros::Publisher drive_pub_;
@@ -108,103 +116,157 @@ void Navigation::ObservePointCloud(const vector<Vector2f>& cloud,
   point_cloud_ = cloud;                                     
 }
 
-float Navigation::TOC(float dt, float vel_current, float arc_length, float dist_traveled) 
-{
-    // Car Parameters
-    int const vel_max {1};
-    int const acl_max {4};
-    int const dcl_max {4};
+// float Navigation::TOC(float dt, float vel_current, float arc_length, float dist_traveled) 
+// {
+//     // Car Parameters
+//     int const vel_max {1};
+//     int const acl_max {4};
+//     int const dcl_max {4};
     
-    // ============================================================================
-    // if car is STOPPED, ACCELERATING, or DECELERATING
-    if (vel_current < vel_max)
-    {
-        float vel_new = vel_current + (acl_max * dt);          // new velocity if you still need to get to max vel
-        //float dist_if_commanded = 0.5*(vel_current + vel_new)*dt;  // hypotethical distance traveled if commanded new velocity
-        float dist_left = arc_length - dist_traveled;          // distance left on the free path length
-        float dist_to_dcl = pow(vel_new,2)/(2*dcl_max);        // distance needed to decelerate based on new velocity
-        // std::cout << "> vel_new: " << vel_new
-        //           << "; dist_traveled: " << dist_traveled
-        //           << "; dist_left: " << dist_left
-        //           << "; dist_to_dcl: " << dist_to_dcl 
-        //           << "; dist_if_commanded: " << dist_if_commanded 
-        //           << std::endl;
+//     // ============================================================================
+//     // if car is STOPPED, ACCELERATING, or DECELERATING
+//     if (vel_current < vel_max)
+//     {
+//         float vel_new = vel_current + (acl_max * dt);          // new velocity if you still need to get to max vel
+//         //float dist_if_commanded = 0.5*(vel_current + vel_new)*dt;  // hypotethical distance traveled if commanded new velocity
+//         float dist_left = arc_length - dist_traveled;          // distance left on the free path length
+//         float dist_to_dcl = pow(vel_new,2)/(2*dcl_max);        // distance needed to decelerate based on new velocity
+//         // std::cout << "> vel_new: " << vel_new
+//         //           << "; dist_traveled: " << dist_traveled
+//         //           << "; dist_left: " << dist_left
+//         //           << "; dist_to_dcl: " << dist_to_dcl 
+//         //           << "; dist_if_commanded: " << dist_if_commanded 
+//         //           << std::endl;
         
-        // If distance needed to stop is greater than the 
-        // distance left on the curvature arc
-        if (dist_to_dcl > dist_left) 
-        {
-            // set dist needed to decelerate at input velocity
-            float dist_to_dcl_current = pow(vel_current,2) / (2*dcl_max);
+//         // If distance needed to stop is greater than the 
+//         // distance left on the curvature arc
+//         if (dist_to_dcl > dist_left) 
+//         {
+//             // set dist needed to decelerate at input velocity
+//             float dist_to_dcl_current = pow(vel_current,2) / (2*dcl_max);
 
-            // STOP: if the distance needed to stop at the current velocity
-            // is greater than the distance needed to get to the end of the arc
-            if (dist_to_dcl_current > arc_length)
-            {
-                return 0;
-            }
-            // DECELERATE: 
-            else
-            {
-                return vel_current - (dcl_max*dt);
-            }
-        }
+//             // STOP: if the distance needed to stop at the current velocity
+//             // is greater than the distance needed to get to the end of the arc
+//             if (dist_to_dcl_current > arc_length)
+//             {
+//                 return 0;
+//             }
+//             // DECELERATE: 
+//             else
+//             {
+//                 return vel_current - (dcl_max*dt);
+//             }
+//         }
 
-        // ACCELERATE: If the distance needed to stop is less
-        // than or equal to the distance left to travel
-        else if (dist_to_dcl <= dist_left)
-        {
-            return vel_current + (acl_max*dt);
-        }
-        else
-            return 0;
-    }
+//         // ACCELERATE: If the distance needed to stop is less
+//         // than or equal to the distance left to travel
+//         else if (dist_to_dcl <= dist_left)
+//         {
+//             return vel_current + (acl_max*dt);
+//         }
+//         else
+//             return 0;
+//     }
 
-    // ===========================================================================
-    // if car is at MAX VELOCITY
+//     // ===========================================================================
+//     // if car is at MAX VELOCITY
 
-    else if (vel_current >= vel_max)
-    {
-        vel_current = vel_max;
-        //float dist_if_commanded = vel_max*dt;            // hypotethical distance traveled at constant velocity based on time
-        float dist_left = arc_length - dist_traveled;    // distance left on path 
-        float dist_to_dcl = pow(vel_max,2)/(2*dcl_max);  // distance needed to decelerate
-        // std::cout << "> dist_traveled: " << dist_traveled
-        //           << "; dist_left: " << dist_left
-        //           << "; dist_to_dcl: " << dist_to_dcl 
-        //           << "; dist_if_commanded: " << dist_if_commanded 
-        //           << std::endl;
+//     else if (vel_current >= vel_max)
+//     {
+//         vel_current = vel_max;
+//         //float dist_if_commanded = vel_max*dt;            // hypotethical distance traveled at constant velocity based on time
+//         float dist_left = arc_length - dist_traveled;    // distance left on path 
+//         float dist_to_dcl = pow(vel_max,2)/(2*dcl_max);  // distance needed to decelerate
+//         // std::cout << "> dist_traveled: " << dist_traveled
+//         //           << "; dist_left: " << dist_left
+//         //           << "; dist_to_dcl: " << dist_to_dcl 
+//         //           << "; dist_if_commanded: " << dist_if_commanded 
+//         //           << std::endl;
         
-        // if distance needed to decelerate is greater 
-        // than the arc length, STOP
-        if (dist_to_dcl > arc_length)
-            return 0;
+//         // if distance needed to decelerate is greater 
+//         // than the arc length, STOP
+//         if (dist_to_dcl > arc_length)
+//             return 0;
         
-        // if the distance needed to decelerate is greater
-        // than the distance left to travel on free path length, intiate deceleration
-        else if (dist_to_dcl > dist_left)
-            return vel_current - (dcl_max*dt);
+//         // if the distance needed to decelerate is greater
+//         // than the distance left to travel on free path length, intiate deceleration
+//         else if (dist_to_dcl > dist_left)
+//             return vel_current - (dcl_max*dt);
 
-        // if the distance is less than or equal to the 
-        // distance left, continue at max velocity
-        else if (dist_to_dcl <= dist_left)
-            return vel_max;
-        else
-            return 0;
-    }
-    else
-    {
-        return 0;
-    }
+//         // if the distance is less than or equal to the 
+//         // distance left, continue at max velocity
+//         else if (dist_to_dcl <= dist_left)
+//             return vel_max;
+//         else
+//             return 0;
+//     }
+//     else
+//     {
+//         return 0;
+//     }
+// }
+
+double arc_radius(double p1x, double p1y, double p2x, double p2y)
+{
+  double a = p2y - p1y;
+  //std::cout << a << std::endl;
+  double b = p2x - p1x;
+  //std::cout << b << std::endl;
+  if (a == 0)
+  {
+    //std::cout << "a: " << a << std::endl;
+    return a;
+  }
+  else if (b == 0)
+  {
+    //std::cout << "b: " << b << std::endl;
+    return b;
+  }
+  else
+  {
+  double F = sqrt(pow(b,2)+pow(a,2));
+  //std::cout << "F: " << F << std::endl;
+  double rho = asin(b/F) - asin(a/F);
+  //std::cout << "rho: " << rho << std::endl;
+  double r = -(a/(sin(rho)-1));
+  //std::cout << "r: " << r << std::endl;
+  return r;
+  }
+}
+
+double arc_angle(double p1x, double p1y, double p2x, double p2y)
+{
+  double b = p2x - p1x;
+  //std::cout << "b2: " << b << std::endl;
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+  //std::cout << "r2: " << r << std::endl;
+  double angle = asin(b/r);
+  //std::cout << "angle: " << angle << std::endl;
+  return angle;
+}
+
+double arc_length(double p1x, double p1y, double p2x, double p2y)
+{
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+  double phi = arc_angle(p1x, p1y, p2x, p2y);
+  //std::cout << "phi: " << phi << std::endl;
+  return r*phi;
 }
 
 
 void Navigation::Run() {
+
+  //auto millisec_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  //auto sec_since_epoch = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+  //std::cout << "millisec_since_epoch: " << millisec_since_epoch
+  //          << "\nsec_since_epoch: " << sec_since_epoch
+  //          << std::endl;
+
   // This function gets called 20 times a second to form the control loop.
 
-  double t_start = ros::WallTime::now().toSec();
-  float dt = 0.05; // Time Step: 20Hz converted to sec
-  float dist_traveled = abs(odom_loc_.x() - odom_start_loc_.x());
+  ros::Time t_start = ros::Time::now();
+  double dt = 0.05; // Time Step: 20Hz converted to sec
+  double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
   
   // MESSAGE DATA
   std::cout << "========"
@@ -220,10 +282,18 @@ void Navigation::Run() {
             << "\n[Robot Velocity] dx: " << robot_vel_.x() << "m/s; dy: " << robot_vel_.y() << "m/s"
             << std::endl;
 
-  float arc_length = 4; // Travel 4 m
 
-  float vel_command = TOC(dt, robot_vel_.x(), arc_length, dist_traveled);
-  std::cout << "\n vel_command: " << vel_command << std::endl;
+  double p1x = 0;
+  double p1y = 0;
+  float p2x = 4.00;
+  float p2y = 1.00;
+
+  double arc_l = arc_length(p1x, p1y, p2x, p2y);
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+
+  double vel_command =  car_.TOC(dt, robot_vel_.norm(), arc_l, dist_traveled);
+  std::cout << "arc_length: " << arc_l 
+            << "\n vel_command: " << vel_command << std::endl;
 
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
@@ -238,7 +308,13 @@ void Navigation::Run() {
   // The latest observed point cloud is accessible via "point_cloud_"
   
   // Eventually, you will have to set the control values to issue drive commands:
-  drive_msg_.curvature = 0;
+
+  Vector2f p2;
+  p2 << 4, 1;
+
+  visualization::DrawCross(p2,0.5,0x3449eb,global_viz_msg_);
+
+  drive_msg_.curvature = 1/r;
   drive_msg_.velocity = vel_command;
   
   // Add timestamps to all messages.
@@ -250,7 +326,9 @@ void Navigation::Run() {
   viz_pub_.publish(global_viz_msg_);
   drive_pub_.publish(drive_msg_);
 
-  //std::cout << "Point: " << point_cloud_.at(0) << std::endl;
+  // double end_time = std::chrono::system_clock::now();
+  // double time_elapsed = start_time - end_time;
+  // std::cout << time_elapsed << std::endl;
 }
 
 }  // namespace navigation
