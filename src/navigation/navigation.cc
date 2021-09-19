@@ -1,3 +1,4 @@
+
 //========================================================================
 //  This software is free: you can redistribute it and/or modify
 //  it under the terms of the GNU Lesser General Public License Version 3,
@@ -330,71 +331,79 @@ double arc_length(double p1x, double p1y, double p2x, double p2y)
 
 // Finding the Best Path
 // TODO : define the return of this method
-// PathOption Navigation::getBestPath(Vector2f goal_loc)
-// {
-// 	// Number to tune
-// 	int num_paths = 20;
+PathOption Navigation::getBestPath(Vector2f goal_loc)
+{
+	// Number to tune
+	int num_paths = 20;
 
-// 	// Sample paths
-// 	samplePaths(num_paths);
+	// Sample paths
+	samplePaths(num_paths);
 
-// 	vector<double> free_path_length_array;
-// 	vector<double> dist_to_goal_array;
-// 	vector<double> clearance_array;
+	vector<double> free_path_length_array;
+	vector<double> dist_to_goal_array;
+	vector<double> clearance_array;
 
-// 	// save the range of each variable for normalize in the scoring function
-// 	float max_free_path_length = 0;
-// 	float min_dist_to_goal = 0;
-// 	float max_clearance = 0;
+	// save the range of each variable for normalize in the scoring function
+	float max_free_path_length = 0;
+	float min_dist_to_goal = 0;
+	float max_clearance = 0;
 
-// 	for (auto &path : Paths_)
-// 	{
-// 		predictCollisions(path);
-// 		trimPath(path, goal_loc);
-// 		calculateClearance(path);
+	for (auto &path : Paths_)
+	{
+		predictCollisions(path);
+		trimPath(path, goal_loc);
+		calculateClearance(path);
+  }
 
-// 	for (auto &path : Paths_)
-// 	{
-// 		predictCollisions(path);
-// 		trimPath(path, goal_loc);
+	for (auto &path : Paths_)
+	{
+		predictCollisions(path);
+		trimPath(path, goal_loc);
 
-// 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
-// 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
-// 		max_clearance = std::max(path.clearance, max_clearance);
+		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
+		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
+		max_clearance = std::max(path.clearance, max_clearance);
 
-// 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
-// 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
+    // TODO : Variables HERE TWICE?
+		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
+		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
 
-// 		free_path_length_vec.push_back(path.free_path_length);
-// 		dist_to_goal_vec.push_back(path.dist_to_goal);
-// 	}
+		free_path_length_vec.push_back(path.free_path_length);
+		dist_to_goal_vec.push_back(path.dist_to_goal);
+	}
 
-// 	for (int i = 0; i < num_paths; i++)
-// 	{
-// 		float free_path_length = free_path_length_array.at(i);
-// 		float dist_to_goal = dist_to_goal_array.at(i);
+  PathOption BestPath;
 
-// 		// the longer fpl, the better
-// 		float free_path_length_cost = -(free_path_length/max_free_path_length) * free_path_length_weight_;
-// 		// the smaller dist_to_goal, the better
-// 		float dist_to_goal_cost =  (dist_to_goal/min_dist_to_goal) * dist_to_goal_weight_;
+	for (int i = 0; i < num_paths; i++)
+	{
+		float free_path_length = free_path_length_array.at(i);
+		float dist_to_goal = dist_to_goal_array.at(i);
 
-//     // TODO : add clearance_padded_cost
-// 		// float cost = free_path_length_cost + clearance_padded_cost + dist_to_goal_cost;
-//     float cost = free_path_length_cost + dist_to_goal_cost;
+		// the longer fpl, the better
+		float free_path_length_cost = -(free_path_length/max_free_path_length) * free_path_length_weight_;
+    std::cout << "fpl_cost: " << free_path_length_cost << std::endl;
+		// the smaller dist_to_goal, the better
+		float dist_to_goal_cost =  (dist_to_goal/min_dist_to_goal) * dist_to_goal_weight_;
+    std::cout << "dist_to_goal_cost: " << dist_to_goal << std::endl;
+
+    // TODO : add clearance_padded_cost
+		// float cost = free_path_length_cost + clearance_padded_cost + dist_to_goal_cost;
+    float cost = free_path_length_cost + dist_to_goal_cost;
+    std::cout << "cost: " << cost << std::endl;
 
 
-//     // TODO : define a min_cost & and BestPath
-//     float min_cost {0};
+    // TODO : define a min_cost, BestPath, PossiblePaths_
+    float min_cost {0};
 
-// 		if (cost < min_cost) {
-// 			min_cost = cost;
-// 			BestPath = PossiblePaths_.at(i);
-// 			BestPath.cost = cost;
-// 		}
-// 	}
-// 	return BestPath;
-// }
+		if (cost < min_cost) 
+    {
+			min_cost = cost;
+			BestPath = Paths_.at(i);
+			BestPath.cost = cost;
+		}
+	}
+	return BestPath;
+}
 
 
 void Navigation::Run() {
@@ -407,24 +416,21 @@ void Navigation::Run() {
 
   // This function gets called 20 times a second to form the control loop.
 
-  ros::Time t_start = ros::Time::now();
   double dt = 0.05; // Time Step: 20Hz converted to sec
   double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
   
   // MESSAGE DATA
-  std::cout << "========"
-            << "\n[Time Stamp] " << t_start << "s"
-            << "\n[Time Step] " << dt << "s"
-            << "\n[Odom Start Location] x: " << odom_start_loc_.x() << "m; y: " << odom_start_loc_.y() << "m"
-            << "\n[Odom Start Angle] " << odom_start_angle_ << " rad"
-            << "\n[Odom Location] x: " << odom_loc_.x() << "m; y: " << odom_loc_.y() << "m"
-            << "\n[Dist Traveled] " << dist_traveled << "m"
-            << "\n[Odom Angle] " << odom_angle_ << " rad"
-            << "\n[Robot Location] x: " << robot_loc_.x() << "m; y: " << robot_loc_.y() << "m"
-            << "\n[Robot Angle] " << robot_angle_ << " rad"
-            << "\n[Robot Velocity] dx: " << robot_vel_.x() << "m/s; dy: " << robot_vel_.y() << "m/s"
-            << std::endl;
-
+  // std::cout << "========"
+  //           << "\n[Time Step] " << dt << "s"
+  //           << "\n[Odom Start Location] x: " << odom_start_loc_.x() << "m; y: " << odom_start_loc_.y() << "m"
+  //           << "\n[Odom Start Angle] " << odom_start_angle_ << " rad"
+  //           << "\n[Odom Location] x: " << odom_loc_.x() << "m; y: " << odom_loc_.y() << "m"
+  //           << "\n[Dist Traveled] " << dist_traveled << "m"
+  //           << "\n[Odom Angle] " << odom_angle_ << " rad"
+  //           << "\n[Robot Location] x: " << robot_loc_.x() << "m; y: " << robot_loc_.y() << "m"
+  //           << "\n[Robot Angle] " << robot_angle_ << " rad"
+  //           << "\n[Robot Velocity] dx: " << robot_vel_.x() << "m/s; dy: " << robot_vel_.y() << "m/s"
+  //           << std::endl;
 
   double p1x = 0;
   double p1y = 0;
@@ -435,8 +441,25 @@ void Navigation::Run() {
   double r = arc_radius(p1x, p1y, p2x, p2y);
 
   double vel_command =  car_.TOC(dt, robot_vel_.norm(), arc_l, dist_traveled);
-  std::cout << "arc_length: " << arc_l 
+  std::cout << "============================="
+            << "\narc_length: " << arc_l 
             << "\n vel_command: " << vel_command << std::endl;
+  
+  // samplePaths(5);
+
+  // for (auto p:Paths_)
+  //   {
+  //   predictCollisions(p);
+  //   std::cout << p.free_path_length << std::endl;
+  //   }
+  Vector2f goal;
+  goal << p2x, p2y;
+
+  getBestPath(goal);
+
+
+
+  // ======================================================================================================
 
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
@@ -452,6 +475,7 @@ void Navigation::Run() {
   
   // Eventually, you will have to set the control values to issue drive commands:
 
+  // Draw Cross
   Vector2f p2;
   p2 << (odom_start_loc_.x()+4) - odom_loc_.x(), (odom_start_loc_.y()+1) - odom_loc_.y();
 
