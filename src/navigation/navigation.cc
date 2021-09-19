@@ -116,96 +116,6 @@ void Navigation::ObservePointCloud(const vector<Vector2f>& cloud,
   point_cloud_ = cloud;                                     
 }
 
-// float Navigation::TOC(float dt, float vel_current, float arc_length, float dist_traveled) 
-// {
-//     // Car Parameters
-//     int const vel_max {1};
-//     int const acl_max {4};
-//     int const dcl_max {4};
-    
-//     // ============================================================================
-//     // if car is STOPPED, ACCELERATING, or DECELERATING
-//     if (vel_current < vel_max)
-//     {
-//         float vel_new = vel_current + (acl_max * dt);          // new velocity if you still need to get to max vel
-//         //float dist_if_commanded = 0.5*(vel_current + vel_new)*dt;  // hypotethical distance traveled if commanded new velocity
-//         float dist_left = arc_length - dist_traveled;          // distance left on the free path length
-//         float dist_to_dcl = pow(vel_new,2)/(2*dcl_max);        // distance needed to decelerate based on new velocity
-//         // std::cout << "> vel_new: " << vel_new
-//         //           << "; dist_traveled: " << dist_traveled
-//         //           << "; dist_left: " << dist_left
-//         //           << "; dist_to_dcl: " << dist_to_dcl 
-//         //           << "; dist_if_commanded: " << dist_if_commanded 
-//         //           << std::endl;
-        
-//         // If distance needed to stop is greater than the 
-//         // distance left on the curvature arc
-//         if (dist_to_dcl > dist_left) 
-//         {
-//             // set dist needed to decelerate at input velocity
-//             float dist_to_dcl_current = pow(vel_current,2) / (2*dcl_max);
-
-//             // STOP: if the distance needed to stop at the current velocity
-//             // is greater than the distance needed to get to the end of the arc
-//             if (dist_to_dcl_current > arc_length)
-//             {
-//                 return 0;
-//             }
-//             // DECELERATE: 
-//             else
-//             {
-//                 return vel_current - (dcl_max*dt);
-//             }
-//         }
-
-//         // ACCELERATE: If the distance needed to stop is less
-//         // than or equal to the distance left to travel
-//         else if (dist_to_dcl <= dist_left)
-//         {
-//             return vel_current + (acl_max*dt);
-//         }
-//         else
-//             return 0;
-//     }
-
-//     // ===========================================================================
-//     // if car is at MAX VELOCITY
-
-//     else if (vel_current >= vel_max)
-//     {
-//         vel_current = vel_max;
-//         //float dist_if_commanded = vel_max*dt;            // hypotethical distance traveled at constant velocity based on time
-//         float dist_left = arc_length - dist_traveled;    // distance left on path 
-//         float dist_to_dcl = pow(vel_max,2)/(2*dcl_max);  // distance needed to decelerate
-//         // std::cout << "> dist_traveled: " << dist_traveled
-//         //           << "; dist_left: " << dist_left
-//         //           << "; dist_to_dcl: " << dist_to_dcl 
-//         //           << "; dist_if_commanded: " << dist_if_commanded 
-//         //           << std::endl;
-        
-//         // if distance needed to decelerate is greater 
-//         // than the arc length, STOP
-//         if (dist_to_dcl > arc_length)
-//             return 0;
-        
-//         // if the distance needed to decelerate is greater
-//         // than the distance left to travel on free path length, intiate deceleration
-//         else if (dist_to_dcl > dist_left)
-//             return vel_current - (dcl_max*dt);
-
-//         // if the distance is less than or equal to the 
-//         // distance left, continue at max velocity
-//         else if (dist_to_dcl <= dist_left)
-//             return vel_max;
-//         else
-//             return 0;
-//     }
-//     else
-//     {
-//         return 0;
-//     }
-// }
-
 double arc_radius(double p1x, double p1y, double p2x, double p2y)
 {
   double a = p2y - p1y;
@@ -310,9 +220,9 @@ void Navigation::Run() {
   // Eventually, you will have to set the control values to issue drive commands:
 
   Vector2f p2;
-  p2 << 4, 1;
+  p2 << (odom_start_loc_.x()+4) - odom_loc_.x(), (odom_start_loc_.y()+1) - odom_loc_.y();
 
-  visualization::DrawCross(p2,0.5,0x3449eb,global_viz_msg_);
+  visualization::DrawCross(p2,0.5,0x3449eb,local_viz_msg_);
 
   drive_msg_.curvature = 1/r;
   drive_msg_.velocity = vel_command;
