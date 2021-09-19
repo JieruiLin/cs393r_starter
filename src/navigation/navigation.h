@@ -148,11 +148,15 @@ class Navigation {
 
   void predictCollisions(PathOption& path);
 
-  void calculateClearance(PathOption &path);
+  void calculateClearance(PathOption& path);
 
   Eigen::Vector2f P_center;
 
   PathOption getBestPath(Eigen::Vector2f goal_loc);
+
+  std::vector<float> free_path_length_vec;
+
+  std::vector<float> dist_to_goal_vec;
 
   // Definition of Car
   Car car_;
