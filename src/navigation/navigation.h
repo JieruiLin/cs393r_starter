@@ -40,12 +40,14 @@ struct PathOption {
   float dist_to_goal;
   float cost;
   float alpha;
+  float beta;
   float radius;
   Eigen::Vector2f obstruction;
   Eigen::Vector2f closest_point;
   Eigen::Vector2f end_point;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
+
 
 struct Obstacle {
   Eigen::Vector2f loc;
@@ -171,6 +173,8 @@ class Navigation {
   //std::vector<float> free_path_length_vec;
 
   //std::vector<float> dist_to_goal_vec;
+
+
 
 
   // Definition of Car

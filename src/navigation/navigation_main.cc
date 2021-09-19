@@ -98,6 +98,7 @@ void LaserCallback(const sensor_msgs::LaserScan& msg) {
       point_cloud_.push_back(Vector2f{r*cos(theta)+kLaserLoc[0], r*sin(theta)+kLaserLoc[1]});
       // Print statement to check point cloud points
       //std::cout << "[x: " << point_cloud_[it].x() << "; y: " << point_cloud_[it].y() << std::endl;
+
     }
     theta += msg.angle_increment;
     it++;
