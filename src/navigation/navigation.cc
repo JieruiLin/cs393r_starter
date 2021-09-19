@@ -198,6 +198,57 @@ float Navigation::TOC(float dt, float vel_current, float arc_length, float dist_
     }
 }
 
+float Navigation::LatencyCompensation(float observation_duration, float actuation_duration, float dt, float x, float y, float theta, float xdot, float ydot, float omega){
+    observation_duration_ = observation_duration;
+    actuation_duration_ = actuation_duration;
+    time_step = dt;
+    previous_observation_time_ = -2.0;
+    float system_delay_ = observation_duration_ + actuation_duration_;
+
+    odom_location_.x = odom_start_loc_.x();
+    odom_location_.y = odom_start_loc_.y();
+    odom_location_.theta = theta;
+    previous_observation_time_ = ros::Time::now().toSec() - observation_duration_;
+    float cutoff_time = previous_observation_time_ - actuation_duration_;
+    record_cutoff_time = ros::Time::now().toSec() - actuation_duration_
+
+    odom_location_.vx = xdot;
+    odom_location_.vy = ydot;
+    odom_location_.omega = omega;
+    record_.push_back(std::array<double,4>({double(xdot), double(ydot), double(omega), ros::Time::now().toSec()}));
+
+   state2D prediction = odom_location_;
+    
+    if(previous_observation_time_ < 0)
+        return odom_location_;
+    if(system_delay_ == 0)
+        return odom_location_;
+
+    bool input = false;
+
+    for(auto one_record = record_.begin(); one_record != record_.end();){
+        if(one_record[3] <= cutoff_time){
+            one_record = record_.erase(one_record);
+            continue;
+        }
+
+        if(one_record[3] >= record_cutoff_time and not input){
+            prediction.vx = one_record[0];
+            prediction.vy - one_record[1];
+            prediction.omega = one_record[2];
+            input = true;
+        }
+
+        else{
+            prediction.x += one_record[0]*time_step;
+            prediction.y += one_record[1]*time_step;
+            prediction.theta += one_record[2]*time_step;
+
+            one_record++;
+        }
+    }
+    return prediction;
+}
 
 void Navigation::Run() {
   // This function gets called 20 times a second to form the control loop.
