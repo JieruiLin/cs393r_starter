@@ -171,7 +171,7 @@ class Navigation {
 
   void trimPath(PathOption &path, Eigen::Vector2f goal);
 
-  void predictCollisions(PathOption& path);
+  void predictCollisions(PathOption& path, Eigen::Vector2f goal_loc); // debug
 
   void calculateClearance(PathOption& path);
 

@@ -70,7 +70,8 @@ float Car::get_curv_pass_rear (const float &steering_angle)
     return get_curvature(r_pass_rear);
 }
 
-float Car::TOC(float dt, float vel_current, float arc_length, float dist_traveled) 
+// debug
+float Car::TOC(float dt, float vel_current, float arc_length)// float dist_traveled) 
 {
     // Car Parameters
     int const vel_max {1};
@@ -83,7 +84,7 @@ float Car::TOC(float dt, float vel_current, float arc_length, float dist_travele
     {
         float vel_new = vel_current + (acl_max * dt);          // new velocity if you still need to get to max vel
         //float dist_if_commanded = 0.5*(vel_current + vel_new)*dt;  // hypotethical distance traveled if commanded new velocity
-        float dist_left = arc_length - dist_traveled;          // distance left on the free path length
+        float dist_left = arc_length; //- dist_traveled;          // distance left on the free path length
         float dist_to_dcl = pow(vel_new,2)/(2*dcl_max);        // distance needed to decelerate based on new velocity
         // std::cout << "> vel_new: " << vel_new
         //           << "; dist_traveled: " << dist_traveled
@@ -129,7 +130,7 @@ float Car::TOC(float dt, float vel_current, float arc_length, float dist_travele
     {
         vel_current = vel_max;
         //float dist_if_commanded = vel_max*dt;            // hypotethical distance traveled at constant velocity based on time
-        float dist_left = arc_length - dist_traveled;    // distance left on path 
+        float dist_left = arc_length; //- dist_traveled;    // distance left on path 
         float dist_to_dcl = pow(vel_max,2)/(2*dcl_max);  // distance needed to decelerate
         // std::cout << "> dist_traveled: " << dist_traveled
         //           << "; dist_left: " << dist_left

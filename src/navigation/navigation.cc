@@ -75,14 +75,14 @@ const float car_width_ 	= 0.1;		    // width
 const float car_length_ = 0.3;		    // length
 const float safety_margin_ 	= 0.01;		// margin of safety
 const float wheelbase_ 	= 0.2;	// wheelbase
-const Vector2f p_min(0, car_width_/2+safety_margin_); //coordinate of the closest point
-const Vector2f p_middle((wheelbase_+car_length_)/2 + safety_margin_,  car_width_/2+safety_margin_); //coordinate of the intersection of left and front
-const Vector2f p_max((wheelbase_+car_length_)/2 + safety_margin_, -car_width_/2-safety_margin_); //coordinate of the intersection of right and front
+const Vector2f p_min(0, car_width_/2+safety_margin_); //coordinate of the closest point to obstacles?
+const Vector2f p_middle((wheelbase_+car_length_)/2 + safety_margin_,  car_width_/2+safety_margin_); //coordinate of the intersection of driver side front
+const Vector2f p_max((wheelbase_+car_length_)/2 + safety_margin_, -car_width_/2-safety_margin_); //coordinate of the intersection of passenger side front
 const Vector2f P_center(0,0);
 
 // weight in scoring function
 float free_path_length_weight_ = 1.0;
-float dist_to_goal_weight_ = 100.0;
+float dist_to_goal_weight_ = 1.0;
 
 
 
@@ -172,15 +172,68 @@ void Navigation::VisObstacles(){
 void Navigation::SetNavGoal(const Vector2f& loc, float angle) {
 }
 
-// sample paths with fixed radius interval
+
+// Frank - ArcRadius Calcs
+double arc_radius(double p1x, double p1y, double p2x, double p2y)
+{
+  double a = p2y - p1y;
+  //std::cout << a << std::endl;
+  double b = p2x - p1x;
+  //std::cout << b << std::endl;
+  if (a == 0)
+  {
+    //std::cout << "a: " << a << std::endl;
+    return a;
+  }
+  else if (b == 0)
+  {
+    //std::cout << "b: " << b << std::endl;
+    return b;
+  }
+  else
+  {
+  double F = sqrt(pow(b,2)+pow(a,2));
+  //std::cout << "F: " << F << std::endl;
+  double rho = asin(b/F) - asin(a/F);
+  //std::cout << "rho: " << rho << std::endl;
+  double r = -(a/(sin(rho)-1));
+  //std::cout << "r: " << r << std::endl;
+  return r;
+  }
+}
+
+// Frank - ArcAngle Calcs
+double arc_angle(double p1x, double p1y, double p2x, double p2y)
+{
+  double b = p2x - p1x;
+  //std::cout << "b2: " << b << std::endl;
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+  //std::cout << "r2: " << r << std::endl;
+  double angle = asin(b/r);
+  //std::cout << "angle: " << angle << std::endl;
+  return angle;
+}
+
+// Frank - ArcLength Calcs
+double arc_length(double p1x, double p1y, double p2x, double p2y)
+{
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+  double phi = arc_angle(p1x, p1y, p2x, p2y);
+  //std::cout << "phi: " << phi << std::endl;
+  return r*phi;
+// select best path based on scoring function
+}
+
+// sample paths with fixed radius interval (GOOD)
 void Navigation::samplePaths(float num) {
 
   Paths_.clear();
-  float curve_increment = 2*curvature_max_/num;
-  for (int i = 0; i<num; i++){
+  float curve_increment = 2*(curvature_max_/num);
+  for (int i = 0; i<=num; i++){
     float curvature = -curvature_max_ + i*curve_increment;
+    std::cout << "samplePaths() curvature: " << curvature << std::endl;
     // put initialized path option to Paths list
-    Paths_.push_back(PathOption {curvature, // curvature
+    Paths_.push_back(PathOption {curvature,               // curvature
                                           0,		          // clearance
                                           0,		          // free path length
                                           0,		          // distance to goal
@@ -227,7 +280,7 @@ void Navigation::trimPath(PathOption &path, Vector2f goal)
 }
 
 // calculate free path length
-void Navigation::predictCollisions(PathOption& path)
+void Navigation::predictCollisions(PathOption& path, Vector2f goal_loc)
 {
   //std::cout << "======= predictCollisions =======" << std::endl;
   
@@ -236,7 +289,8 @@ void Navigation::predictCollisions(PathOption& path)
   float fpl_current {0};
 
   // Obstruction point (without considering obstacles)
-  float fpl = abs(M_PI*path.radius);
+  //float fpl = abs(M_PI*path.radius);
+  float fpl = arc_length(0,0,goal_loc.x(), goal_loc.y()); // debug
   float best_alpha {0};
   float best_beta {0};
   Vector2f p_obstruction(0, 2*path.radius);
@@ -249,9 +303,9 @@ void Navigation::predictCollisions(PathOption& path)
 
     for (auto &obs:ObstacleList_)
     {
-      if (obs.loc.x() >= p_middle.x() && obs.loc.y() < p_middle.y() && obs.loc.y() > p_max.y())
+      if (obs.loc.x() >= p_middle.x() && obs.loc.y() < p_middle.y() && obs.loc.y() > p_max.y()) // check if obstacle location is in front of car
       {
-        Vector2f obs_loc = obs.loc;
+        Vector2f obs_loc = Odom2BaseLink(obs.loc); //debug
         fpl_current = obs.loc.x() - p_middle.x();
         
         // save the smallest fpl
@@ -259,7 +313,7 @@ void Navigation::predictCollisions(PathOption& path)
         {
           fpl = fpl_current;
           p_obstruction = obs_loc;
-          p_end << fpl_current, 0;
+          p_end << fpl, 0; // debug
         }
       }
     }
@@ -275,7 +329,7 @@ void Navigation::predictCollisions(PathOption& path)
     //std::cout << "Entered FPL Arc Calcs" << std::endl;
 	float radius = 1/path.curvature;
   
-  // If turing right
+  // If turning right
   if (radius < 0) 
   {
     for (auto &obs:ObstacleList_)
@@ -394,58 +448,6 @@ void Navigation::calculateClearance(PathOption &path){
 	path.closest_point = closest_point;
 }
 
-// Frank - ArcRadius Calcs
-double arc_radius(double p1x, double p1y, double p2x, double p2y)
-{
-  double a = p2y - p1y;
-  //std::cout << a << std::endl;
-  double b = p2x - p1x;
-  //std::cout << b << std::endl;
-  if (a == 0)
-  {
-    //std::cout << "a: " << a << std::endl;
-    return a;
-  }
-  else if (b == 0)
-  {
-    //std::cout << "b: " << b << std::endl;
-    return b;
-  }
-  else
-  {
-  double F = sqrt(pow(b,2)+pow(a,2));
-  //std::cout << "F: " << F << std::endl;
-  double rho = asin(b/F) - asin(a/F);
-  //std::cout << "rho: " << rho << std::endl;
-  double r = -(a/(sin(rho)-1));
-  //std::cout << "r: " << r << std::endl;
-  return r;
-  }
-}
-
-// Frank - ArcAngle Calcs
-double arc_angle(double p1x, double p1y, double p2x, double p2y)
-{
-  double b = p2x - p1x;
-  //std::cout << "b2: " << b << std::endl;
-  double r = arc_radius(p1x, p1y, p2x, p2y);
-  //std::cout << "r2: " << r << std::endl;
-  double angle = asin(b/r);
-  //std::cout << "angle: " << angle << std::endl;
-  return angle;
-}
-
-// Frank - ArcLength Calcs
-double arc_length(double p1x, double p1y, double p2x, double p2y)
-{
-  double r = arc_radius(p1x, p1y, p2x, p2y);
-  double phi = arc_angle(p1x, p1y, p2x, p2y);
-  //std::cout << "phi: " << phi << std::endl;
-  return r*phi;
-// select best path based on scoring function
-}
-
-
 // Finding the Best Path
 // TODO : define the return of this method
 PathOption Navigation::getBestPath(Vector2f goal_loc)
@@ -465,9 +467,9 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 	std::vector<double> clearance_vec;
 
 	// Save the range of each variable for normalize in the scoring function
-	float max_free_path_length = 0;
-	float min_dist_to_goal = 100;
-	float max_clearance = 0;
+	float max_free_path_length {0};
+	float min_dist_to_goal {100};
+	float max_clearance {0};
   int i = {0}; // iter for debug purposes
 
 	for (auto &path : Paths_)
@@ -478,10 +480,10 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 
     std::cout << "\n\npath radius: " << path.radius << std::endl;
     std::cout << "path alpha: " << path.alpha << std::endl;
-    std::cout << "free path length before (predictCollisions): " << path.free_path_length << std::endl;
+    std::cout << "Initialized free path length: " << path.free_path_length << std::endl;
     std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
 
-		predictCollisions(path);
+		predictCollisions(path, goal_loc);
 
     std::cout << "[Iter: " << i << "]"
               << "\ninitial free path length: " << path.free_path_length
@@ -611,7 +613,7 @@ void Navigation::Run() {
   // This function gets called 20 times a second to form the control loop.
 
   double dt = 0.05; // Time Step: 20Hz converted to sec
-  double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
+  //double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
   
   // MESSAGE DATA
   // std::cout << "========"
@@ -631,7 +633,7 @@ void Navigation::Run() {
   // samplePaths(5);
 
   Vector2f goal;
-  goal << 6.00, 2;
+  goal << 6.00, 0.1;
 
   double p1x = 0;
   double p1y = 0;
@@ -641,13 +643,15 @@ void Navigation::Run() {
   double arc_l = arc_length(p1x, p1y, p2x, p2y);
   double r = arc_radius(p1x, p1y, p2x, p2y);
 
-  //PathOption BestPath = getBestPath(goal);
-  
+  PathOption BestPath = getBestPath(goal);
+  std::cout << "fpl from best path: " << BestPath.free_path_length << std::endl;;
 
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), arc_l, dist_traveled);
+  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length); //dist_traveled);
   std::cout << "============================="
-            << "\nBestPath FPL: " << arc_l
-            << "\n vel_command: " << vel_command << std::endl;
+            << "\nBestPath FPL: " << BestPath.free_path_length
+            << "\narc_length: " << arc_l
+            << "\n vel_command: " << vel_command 
+            << "\n curvature: " << 1/r << std::endl;
 
   // ======================================================================================================
 
@@ -678,8 +682,8 @@ void Navigation::Run() {
   // }
 
 
-  //visualization::DrawPathOption(BestPath.curvature, BestPath.dist_to_goal, 0.00, local_viz_msg_);
-  visualization::DrawPathOption(1/r, arc_l, 0.00, local_viz_msg_);
+  visualization::DrawPathOption(1/r, BestPath.free_path_length, 0.00, local_viz_msg_);
+  //visualization::DrawPathOption(1/r, arc_l, 0.00, local_viz_msg_);
 
   drive_msg_.curvature = 1/r;
   drive_msg_.velocity = vel_command;
