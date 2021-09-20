@@ -42,6 +42,7 @@ struct PathOption {
   float alpha;
   float beta;
   float radius;
+  Eigen::Vector2f goal;
   Eigen::Vector2f obstruction;
   Eigen::Vector2f closest_point;
   Eigen::Vector2f end_point;
