@@ -184,12 +184,13 @@ void Navigation::samplePaths(float num) {
     // put initialized path option to Paths list
     Paths_.push_back(PathOption {curvature, // curvature
                                           0,		          // clearance
-                                          0,		          // free path length
+                                          1000,		          // free path length
                                           0,		          // distance to goal
                                           0,		          // cost
                                           0,              // alpha
                                           0,              // beta
                                           1/curvature,    // radius
+										  {0,0},			//goal
                                           {0,0},	        // obstruction point
                                           {0,0},	        // closest point
                                           {0,0}});	      // end point of wheel base
@@ -226,66 +227,81 @@ void Navigation::predictCollisions(PathOption& path)
 	// Obstruction point (without considering obstacles)
 	float fpl = abs(M_PI/path.curvature);
 	Vector2f p_obstruction(0, 2/path.curvature);
-  
-  
-  //std::cout << "Entered FPL Arc Calcs" << std::endl;
-	float radius = 1/path.curvature;
-  
-	Vector2f turning_center(0,radius); // rotation center
 
-  // turning radius of different points on the car
-	float r_min = (turning_center - pmin).norm();	// smallest rotation radius
-	float r_middle = (turning_center - pmiddle).norm();	// front left point rotation radius
-	float r_max = (turning_center - pmax).norm();	// largest rotation radius
-
-  // Iterate through points in point cloud
-	for (const auto &obs : ObstacleList_)
-  	{
-		// tramsform from global to local
-		Vector2f obs_loc = Odom2BaseLink(obs.loc);
-
-		// distance to obstacle from turning center
-		float r_obstacle = (turning_center - obs_loc).norm();  
-
-		// Check if point will obstruct car
-		if (r_obstacle > r_min && r_obstacle < r_max) 
-    	{
-			// initialize the obstruction point in the initial frame
-			Vector2f obs_init;
-			// initialize the angle between origin, rotation center and initial obstruction point (back projected)
-			float beta;
-
-			// Left collision
-			if (r_obstacle < r_middle) {
-				beta = acos((Sign(radius)*radius-car_width_/2-safety_margin_)/r_obstacle);
-				obs_init = {r_obstacle*sin(beta), Sign(radius)*(car_width_/2+safety_margin_)};
-			
-			// Front collision
-			}else{
-				beta = asin(pmax.x()/r_obstacle);
-				obs_init = {pmax.x(), radius - Sign(radius)*r_obstacle*cos(beta)};
+	if (path.curvature == 0){
+		float min_fpl = 1000;
+		for (const auto &obs : ObstacleList_)
+		{
+			// tramsform from global to local
+			Vector2f obs_loc = Odom2BaseLink(obs.loc);
+			if (obs_loc.x() > 0 && obs_loc.y() > pmax.y() && obs_loc.y() < pmiddle.y()){
+				if (obs_loc.x() < min_fpl){
+					min_fpl = obs_loc.x();
+					path.obstruction = obs_loc;
+					path.free_path_length =  obs_loc.x();
+				}
 			}
-			
-      // calculate free path length rotation angle based on distance between obs_init and obs_loc
-			float side_length = (obs_loc-obs_init).norm();
-			float half_alpha = asin((side_length/2)/r_obstacle);
-			float alpha = 2 * half_alpha;
+		}
+	}else{
+		//std::cout << "Entered FPL Arc Calcs" << std::endl;
+		float radius = 1/path.curvature;
+	
+		Vector2f turning_center(0,radius); // rotation center
 
-			// free path length is the arc length traversed by wheelbase
-			float fpl_current = Sign(radius)*alpha*radius;
+		// turning radius of different points on the car
+		float r_min = (turning_center - pmin).norm();	// smallest rotation radius
+		float r_middle = (turning_center - pmiddle).norm();	// front left point rotation radius
+		float r_max = (turning_center - pmax).norm();	// largest rotation radius
 
-			// save the smallest fpl
-			if (fpl_current < fpl)
-      		{
-				fpl = fpl_current;
-				p_obstruction = obs_loc;
+		// Iterate through points in point cloud
+		for (const auto &obs : ObstacleList_)
+		{
+			// tramsform from global to local
+			Vector2f obs_loc = Odom2BaseLink(obs.loc);
+
+			// distance to obstacle from turning center
+			float r_obstacle = (turning_center - obs_loc).norm();  
+
+			// Check if point will obstruct car
+			if (r_obstacle > r_min && r_obstacle < r_max) 
+			{
+				// initialize the obstruction point in the initial frame
+				Vector2f obs_init;
+				// initialize the angle between origin, rotation center and initial obstruction point (back projected)
+				float beta;
+
+				// Left collision
+				if (r_obstacle < r_middle) {
+					beta = acos((Sign(radius)*radius-car_width_/2-safety_margin_)/r_obstacle);
+					obs_init = {r_obstacle*sin(beta), Sign(radius)*(car_width_/2+safety_margin_)};
+				
+				// Front collision
+				}else{
+					beta = asin(pmax.x()/r_obstacle);
+					obs_init = {pmax.x(), radius - Sign(radius)*r_obstacle*cos(beta)};
+				}
+				
+			// calculate free path length rotation angle based on distance between obs_init and obs_loc
+				float side_length = (obs_loc-obs_init).norm();
+				float half_alpha = asin((side_length/2)/r_obstacle);
+				float alpha = 2 * half_alpha;
+
+				// free path length is the arc length traversed by wheelbase
+				float fpl_current = Sign(radius)*alpha*radius;
+
+				// save the smallest fpl
+				if (fpl_current < fpl)
+				{
+					fpl = fpl_current;
+					p_obstruction = obs_loc;
+				}
 			}
-    	}
 
   	}
 
 	path.obstruction = p_obstruction;
 	path.free_path_length = fpl;
+	}
 }
 
 
@@ -409,38 +425,34 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 
 	for (auto &path : Paths_)
 	{
-		path.dist_to_goal = (path.obstruction-goal_loc).norm();
+		// set goal loc to each path
+		path.goal = goal_loc;
+		// update free path length and obstruction point for each path
 		predictCollisions(path);
-
-    std::cout << "[Iter: " << i << "]"
-              << "\ninitial free path length: " << path.free_path_length
-              << "\nbest_alpha: " << path.alpha 
-              << "\nbest_beta: " << path.beta << std::endl;
-
+		// update free path length and obstruction point for each path
 		trimPath(path, goal_loc);
 
-    // dist to goal for all paths
-    path.dist_to_goal = (goal_loc - path.obstruction).norm();
+		// dist to goal for all paths
+		path.dist_to_goal = (goal_loc - path.obstruction).norm();
 
+	/*
     std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
     std::cout << "trimmed free path length: " << path.free_path_length << std::endl;
-
+	*/
 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
-    std::cout << "max_free_path_length: " << max_free_path_length << std::endl;
+    //std::cout << "max_free_path_length: " << max_free_path_length << std::endl;
 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
-    std::cout << "min_dist_to_goal: " << min_dist_to_goal << std::endl;
+    //std::cout << "min_dist_to_goal: " << min_dist_to_goal << std::endl;
 		max_clearance = std::max(path.clearance, max_clearance);
-    std::cout << "max_clearance: " << max_clearance << std::endl;
-
-    // TODO : Variables HERE TWICE?
-		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
-		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
-
+    //std::cout << "max_clearance: " << max_clearance << std::endl;
+	
 		free_path_length_vec.push_back(path.free_path_length);
 		dist_to_goal_vec.push_back(path.dist_to_goal);
-    i++;
+    	i++;
 	}
 
+
+    float min_cost {1000};
 
 	for (int i = 0; i < num_paths; i++)
 	{
@@ -454,12 +466,8 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 
     // TODO : add clearance_padded_cost
 		// float cost = free_path_length_cost + clearance_padded_cost + dist_to_goal_cost;
-    float cost = free_path_length_cost + dist_to_goal_cost;
+    	float cost = free_path_length_cost + dist_to_goal_cost;
     //std::cout << "cost: " << cost << std::endl;
-
-
-    // TODO : define a min_cost, BestPath, PossiblePaths_
-    float min_cost {1000};
 
 		if (cost < min_cost) 
     {
@@ -560,15 +568,7 @@ void Navigation::Run() {
   // samplePaths(5);
 
   Vector2f goal;
-  goal << 6.00, 2;
-
-  double p1x = 0;
-  double p1y = 0;
-  float p2x = goal.x();
-  float p2y = goal.y();
-
-  //double arc_l = arc_length(p1x, p1y, p2x, p2y);
-  double r = arc_radius(p1x, p1y, p2x, p2y);
+  goal << 5.00, 0;
 
   PathOption BestPath = getBestPath(goal);
   //Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
@@ -605,17 +605,10 @@ void Navigation::Run() {
   visualization::DrawCross(BestPath.end_point,0.25,0x31a851,local_viz_msg_);   // green
   visualization::DrawCross(BestPath.obstruction,0.25,0x731616,local_viz_msg_); // red
 
-  // for (const auto &obs : ObstacleList_)
-  // {
-  //   std::cout << Odom2BaseLink(obs.loc) << std::endl;
-  //   //visualization::DrawCross(Odom2BaseLink(obs.loc), 0.05, 0x3449eb, local_viz_msg_);
-  // }
+  visualization::DrawPathOption(BestPath.curvature, BestPath.free_path_length, 0.00, local_viz_msg_);
 
-
-  //visualization::DrawPathOption(BestPath.curvature, BestPath.dist_to_goal, 0.00, local_viz_msg_);
-  visualization::DrawPathOption(1/r, BestPath.free_path_length, 0.00, local_viz_msg_);
-
-  drive_msg_.curvature = 1/r;
+ std::cout << "curvature: " <<  BestPath.curvature << std::endl;
+  drive_msg_.curvature = BestPath.curvature;
   drive_msg_.velocity = vel_command;
   
   // Add timestamps to all messages.
