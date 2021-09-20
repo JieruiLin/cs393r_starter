@@ -689,7 +689,7 @@ void Navigation::Run() {
   // }
 
 
-  visualization::DrawPathOption(1/r, BestPath.free_path_length, 0.00, local_viz_msg_);
+  visualization::DrawPathOption(BestPath.curvature, BestPath.free_path_length, 0.00, local_viz_msg_);
   //visualization::DrawPathOption(1/r, arc_l, 0.00, local_viz_msg_);
 
 
