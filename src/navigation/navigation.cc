@@ -611,7 +611,7 @@ void Navigation::Run() {
   // This function gets called 20 times a second to form the control loop.
 
   double dt = 0.05; // Time Step: 20Hz converted to sec
-  double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
+  //double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
   
   // MESSAGE DATA
   // std::cout << "========"
@@ -633,23 +633,23 @@ void Navigation::Run() {
   Vector2f goal;
   goal << 6.00, 2;
 
-  //double p1x = 0;
-  //double p1y = 0;
-  //float p2x = goal.x();
-  //float p2y = goal.y();
+  double p1x = 0;
+  double p1y = 0;
+  float p2x = goal.x();
+  float p2y = goal.y();
 
   //double arc_l = arc_length(p1x, p1y, p2x, p2y);
-  //double r = arc_radius(p1x, p1y, p2x, p2y);
+  double r = arc_radius(p1x, p1y, p2x, p2y);
 
   PathOption BestPath = getBestPath(goal);
-  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
+  //Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
 
-  float vx = prediction.vx;
-  float vy = prediction.vy;
-  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
-  std::cout << "velocity: " <<  predict_vel << std::endl;
+  //float vx = prediction.vx;
+  //float vy = prediction.vy;
+  //float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
+  //std::cout << "velocity: " <<  predict_vel << std::endl;
 
-  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length, dist_traveled);
+  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length);
   std::cout << "============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
             << "\n vel_command: " << vel_command << std::endl;
@@ -684,9 +684,9 @@ void Navigation::Run() {
 
 
   //visualization::DrawPathOption(BestPath.curvature, BestPath.dist_to_goal, 0.00, local_viz_msg_);
-  visualization::DrawPathOption(BestPath.curvature, BestPath.free_path_length, 0.00, local_viz_msg_);
+  visualization::DrawPathOption(1/r, BestPath.free_path_length, 0.00, local_viz_msg_);
 
-  drive_msg_.curvature = BestPath.curvature;
+  drive_msg_.curvature = 1/r;
   drive_msg_.velocity = vel_command;
   
   // Add timestamps to all messages.
