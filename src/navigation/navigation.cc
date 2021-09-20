@@ -590,7 +590,7 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
         else{
             prediction.x += one_record[0]*dt;
             prediction.y += one_record[1]*dt;
-            prediction.omega += one_record[2]*dt;
+            prediction.theta += one_record[2]*dt;
         }
     }
     return prediction;
@@ -644,7 +644,7 @@ void Navigation::Run() {
   PathOption BestPath = getBestPath(goal);
   
 
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length, dist_traveled);
+  double vel_command =  car_.TOC(dt, (prediction.vx + prediction.vy).norm(), BestPath.free_path_length, dist_traveled);
   std::cout << "============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
             << "\n vel_command: " << vel_command << std::endl;
