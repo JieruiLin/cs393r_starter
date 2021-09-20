@@ -36,6 +36,7 @@
 #include <iostream>
 #include <numeric>
 #include "car.h"
+#include <vector>
 
 using Eigen::Vector2f;
 using amrl_msgs::AckermannCurvatureDriveMsg;
@@ -55,6 +56,8 @@ AckermannCurvatureDriveMsg drive_msg_;
 // Epsilon value for handling limited numerical precision.
 const float kEpsilon = 1e-5;
 } //namespace
+
+
 
 namespace navigation {
 
@@ -198,26 +201,29 @@ float Navigation::TOC(float dt, float vel_current, float arc_length, float dist_
     }
 }
 
-float Navigation::LatencyCompensation(float observation_duration, float actuation_duration, float dt, float x, float y, float theta, float xdot, float ydot, float omega){
-    observation_duration_ = observation_duration;
-    actuation_duration_ = actuation_duration;
-    time_step = dt;
-    previous_observation_time_ = -2.0;
-    float system_delay_ = observation_duration_ + actuation_duration_;
+Odometry Navigation::LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega){
 
-    odom_location_.x = odom_start_loc_.x();
-    odom_location_.y = odom_start_loc_.y();
-    odom_location_.theta = theta;
-    previous_observation_time_ = ros::Time::now().toSec() - observation_duration_;
+    float previous_observation_time_ = -2.0;
+    float system_delay_ = observation_duration_ + actuation_duration_; // predefined durations
+    
+    Odometry odom_location_;
+
+    odom_location_.x = odom_start_loc_.x(); // TODO : not needed?
+    odom_location_.y = odom_start_loc_.y(); // TODO : not needed?
+    odom_location_.theta = theta; 
+
+    previous_observation_time_ = ros::Time::now().toSec() - observation_duration_; // May need to add function for ros::Time::now().toSec()
+    
     float cutoff_time = previous_observation_time_ - actuation_duration_;
-    record_cutoff_time = ros::Time::now().toSec() - actuation_duration_
+    float record_cutoff_time = ros::Time::now().toSec() - actuation_duration_;
 
     odom_location_.vx = xdot;
     odom_location_.vy = ydot;
     odom_location_.omega = omega;
-    record_.push_back(std::array<double,4>({double(xdot), double(ydot), double(omega), ros::Time::now().toSec()}));
 
-   state2D prediction = odom_location_;
+    record_motion_.push_back(std::vector<double> {double(xdot), double(ydot), double(omega), ros::Time::now().toSec()});
+
+    Odometry prediction = odom_location_;
     
     if(previous_observation_time_ < 0)
         return odom_location_;
@@ -226,25 +232,24 @@ float Navigation::LatencyCompensation(float observation_duration, float actuatio
 
     bool input = false;
 
-    for(auto one_record = record_.begin(); one_record != record_.end();){
+    for(auto &one_record : record_motion_)
+    {
         if(one_record[3] <= cutoff_time){
-            one_record = record_.erase(one_record);
+            one_record.pop_back();
             continue;
         }
 
         if(one_record[3] >= record_cutoff_time and not input){
             prediction.vx = one_record[0];
-            prediction.vy - one_record[1];
+            prediction.vy = one_record[1];
             prediction.omega = one_record[2];
             input = true;
         }
 
         else{
-            prediction.x += one_record[0]*time_step;
-            prediction.y += one_record[1]*time_step;
-            prediction.theta += one_record[2]*time_step;
-
-            one_record++;
+            prediction.x += one_record[0]*dt;
+            prediction.y += one_record[1]*dt;
+            prediction.omega += one_record[2]*dt;
         }
     }
     return prediction;
