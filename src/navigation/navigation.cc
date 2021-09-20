@@ -72,10 +72,10 @@ const float curvature_max_ = 1;
 
 // Fake Robot Parameters (TODO)
 
-const float car_width_ 	= 0.2;		// width
-const float car_length_ = 0.5;		// length
-const float safety_margin_ 	= 0.1;		// margin of safety
-const float wheelbase_ 	= 0.3;	// wheelbase
+const float car_width_ 	= 0.2794;		// width
+const float car_length_ = 0.5334;		// length
+const float safety_margin_ 	= 0.1524;		// margin of safety
+const float wheelbase_ 	= 0.3302;	// wheelbase
 const Vector2f pmin(0, car_width_/2+safety_margin_); //coordinate of the closest point
 const Vector2f pmiddle((wheelbase_+car_length_)/2 + safety_margin_,  car_width_/2+safety_margin_); //coordinate of the intersection of left and front
 const Vector2f pmax((wheelbase_+car_length_)/2 + safety_margin_, -car_width_/2-safety_margin_); //coordinate of the intersection of right and front
