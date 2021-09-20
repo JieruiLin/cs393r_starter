@@ -578,6 +578,9 @@ void Navigation::Run() {
   //float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
   //std::cout << "velocity: " <<  predict_vel << std::endl;
 
+  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
+
+
   float vx = prediction.vx;
   float vy = prediction.vy;
   float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
