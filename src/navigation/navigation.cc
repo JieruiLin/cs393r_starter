@@ -642,9 +642,14 @@ void Navigation::Run() {
   //double r = arc_radius(p1x, p1y, p2x, p2y);
 
   PathOption BestPath = getBestPath(goal);
-  
+  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
 
-  double vel_command =  car_.TOC(dt, (prediction.vx + prediction.vy).norm(), BestPath.free_path_length, dist_traveled);
+  float vx = prediction.vx;
+  float vy = prediction.vy;
+  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
+  std::cout << "velocity: " <<  predict_vel << std::endl;
+
+  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length, dist_traveled);
   std::cout << "============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
             << "\n vel_command: " << vel_command << std::endl;
