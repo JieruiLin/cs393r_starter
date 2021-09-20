@@ -48,7 +48,6 @@ struct PathOption {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
-
 struct Obstacle {
   Eigen::Vector2f loc;
   double timestamp;
@@ -65,6 +64,15 @@ struct Obstacle {
 //   Eigen::Vector2f end_point;
 //   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 // };
+
+struct Odometry {
+  double x;
+  double y;
+  double theta;
+  double vx;
+  double vy;
+  double omega;
+};
 
 class Navigation {
  public:
@@ -149,6 +157,7 @@ class Navigation {
   // Navigation goal angle.
   float nav_goal_angle_;
 
+  std::vector<std::vector<double>> record_motion_;
 
   // Frank Additions
   // rotation matrix
@@ -174,13 +183,10 @@ class Navigation {
 
   //std::vector<float> dist_to_goal_vec;
 
-
-
-
   // Definition of Car
   Car car_;
 
-
+  Odometry LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega);
 
   
 
