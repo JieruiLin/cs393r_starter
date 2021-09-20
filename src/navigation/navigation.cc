@@ -592,7 +592,7 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
         else{
             prediction.x += one_record[0]*dt;
             prediction.y += one_record[1]*dt;
-            prediction.omega += one_record[2]*dt;
+            prediction.theta += one_record[2]*dt;
         }
     }
     return prediction;
@@ -635,23 +635,30 @@ void Navigation::Run() {
   Vector2f goal;
   goal << 6.00, 0.1;
 
-  double p1x = 0;
-  double p1y = 0;
-  float p2x = goal.x();
-  float p2y = goal.y();
+  //double p1x = 0;
+  //double p1y = 0;
+  //float p2x = goal.x();
+  //float p2y = goal.y();
 
-  double arc_l = arc_length(p1x, p1y, p2x, p2y);
-  double r = arc_radius(p1x, p1y, p2x, p2y);
+  //double arc_l = arc_length(p1x, p1y, p2x, p2y);
+  //double r = arc_radius(p1x, p1y, p2x, p2y);
 
   PathOption BestPath = getBestPath(goal);
+
   std::cout << "fpl from best path: " << BestPath.free_path_length << std::endl;;
 
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length); //dist_traveled);
+  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
+
+  float vx = prediction.vx;
+  float vy = prediction.vy;
+  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
+  std::cout << "velocity: " <<  predict_vel << std::endl;
+
+  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length); //dist_traveled)
   std::cout << "============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
-            << "\narc_length: " << arc_l
-            << "\n vel_command: " << vel_command 
-            << "\n curvature: " << 1/r << std::endl;
+            << "\n vel_command: " << vel_command << std::endl;
+
 
   // ======================================================================================================
 
@@ -672,8 +679,8 @@ void Navigation::Run() {
   p2 << (odom_start_loc_.x()+goal.x()) - odom_loc_.x(), (odom_start_loc_.y()+goal.y()) - odom_loc_.y();
 
   visualization::DrawCross(goal,0.5,0x3449eb,local_viz_msg_);
-  //visualization::DrawCross(BestPath.end_point,0.25,0x31a851,local_viz_msg_);   // green
-  //visualization::DrawCross(BestPath.obstruction,0.25,0x731616,local_viz_msg_); // red
+  visualization::DrawCross(BestPath.end_point,0.25,0x31a851,local_viz_msg_);   // green
+  visualization::DrawCross(BestPath.obstruction,0.25,0x731616,local_viz_msg_); // red
 
   // for (const auto &obs : ObstacleList_)
   // {
@@ -685,7 +692,8 @@ void Navigation::Run() {
   visualization::DrawPathOption(1/r, BestPath.free_path_length, 0.00, local_viz_msg_);
   //visualization::DrawPathOption(1/r, arc_l, 0.00, local_viz_msg_);
 
-  drive_msg_.curvature = 1/r;
+
+  drive_msg_.curvature = BestPath.curvature;
   drive_msg_.velocity = vel_command;
   
   // Add timestamps to all messages.
