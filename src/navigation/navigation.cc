@@ -68,13 +68,13 @@ const float kEpsilon = 1e-5;
 } //namespace
 
 // Robot Parameters
-const float curvature_max_ = 1/1.0;
+const float curvature_max_ = 1;
 
 // Fake Robot Parameters (TODO)
-const float car_width_ 	= 0.2;		// width
-const float car_length_ = 0.5;		// length
-const float safety_margin_ 	= 0.1;		// margin of safety
-const float wheelbase_ 	= 0.3;	// wheelbase
+const float car_width_ 	= 0.1;		    // width
+const float car_length_ = 0.3;		    // length
+const float safety_margin_ 	= 0.01;		// margin of safety
+const float wheelbase_ 	= 0.2;	// wheelbase
 const Vector2f p_min(0, car_width_/2+safety_margin_); //coordinate of the closest point
 const Vector2f p_middle((wheelbase_+car_length_)/2 + safety_margin_,  car_width_/2+safety_margin_); //coordinate of the intersection of left and front
 const Vector2f p_max((wheelbase_+car_length_)/2 + safety_margin_, -car_width_/2-safety_margin_); //coordinate of the intersection of right and front
@@ -82,7 +82,7 @@ const Vector2f P_center(0,0);
 
 // weight in scoring function
 float free_path_length_weight_ = 1.0;
-float dist_to_goal_weight_ = 1.0;
+float dist_to_goal_weight_ = 100.0;
 
 
 
@@ -151,19 +151,21 @@ Eigen::Vector2f Navigation::Odom2BaseLink(Eigen::Vector2f p)
 // save point cloud observation to obstacle list
 void Navigation::ObservePointCloud(const vector<Vector2f>& cloud,
                                    double time) {
+  ObstacleList_.clear();
   // Transform point cloud observation from local to global
   for (auto &pt_loc_local : cloud){
     ObstacleList_.push_back(Obstacle {BaseLink2Odom(pt_loc_local), time});
-    //visualization::DrawCross(pt_loc_local,1,0xeb4034,local_viz_msg_);
   }                                
 }
 
 
 // visualize some obstacles
 void Navigation::VisObstacles(){
+  std::cout << "VisObstacles() called" << std::endl;
 	for (const auto &obs : ObstacleList_)
 	{
-		visualization::DrawCross(Odom2BaseLink(obs.loc), 0.5, 0x3449eb, local_viz_msg_);
+    std::cout << Odom2BaseLink(obs.loc) << std::endl;
+		//visualization::DrawCross(Vector2f (3.00,5.00), 0.5, 0x3449eb, local_viz_msg_);
 	}
 }
 
@@ -195,18 +197,33 @@ void Navigation::samplePaths(float num) {
 // trim path to not turn away from goal
 void Navigation::trimPath(PathOption &path, Vector2f goal)
 {
-	Vector2f P_rc = {0, 1/path.curvature};	// rotation center
+  float angle {0};
+  float radius = 1/path.curvature;
+  if (radius < 0){
+    radius = - radius;
+  }
+  Vector2f P_rc = {0, radius};  // rotation center
 
-	// works when angle is less than pi/2, need to check if it works otherwise
-	float angle = atan((P_rc.y()-goal.y())/goal.x());
+  // works when angle is less than pi/2, need to check if it works otherwise
+  if (goal.y()<P_rc.y()){
+    angle = atan((P_rc.y()-goal.y())/goal.x());
+  }
+  else
+  {
+    angle = atan((goal.y()-P_rc.y())/goal.x()) + M_PI/2;
+  }
 
-	// take the smaller as free path length
-	if (abs(angle/path.curvature) < path.free_path_length)
-	{
-		path.free_path_length = abs(angle/path.curvature);
-		// the obstruction point is the intersection of (p_goal, p_rc) and the curvature
-		path.obstruction = P_center + 1/path.curvature * (goal - P_center)/(goal - P_center).norm();
-	} 
+  // take the smaller as free path length
+  if (angle * radius < path.free_path_length)
+  {
+    path.free_path_length = angle * radius;
+    // the obstruction point is the intersection of (p_goal, p_rc) and the curvature
+    path.obstruction = P_rc + radius * (goal - P_center)/(goal - P_center).norm();
+    radius = 1/path.curvature;
+    if (radius < 0){
+      path.obstruction.y() = -path.obstruction.y();
+    }
+  } 
 }
 
 // calculate free path length
@@ -336,7 +353,11 @@ void Navigation::predictCollisions(PathOption& path)
     {
       obs.loc.y() = -obs.loc.y();
     }
+    p_obstruction.y() = -p_obstruction.y();
+    p_end.y() = -p_end.y();
   }
+
+
 
 	path.obstruction = p_obstruction;
 	path.free_path_length = fpl;
@@ -430,23 +451,24 @@ double arc_length(double p1x, double p1y, double p2x, double p2y)
 PathOption Navigation::getBestPath(Vector2f goal_loc)
 {
   PathOption BestPath;
-  //std::cout << "******** getBestPath *********" << std::endl;
+
+  std::cout << "******** getBestPath *********" << std::endl;
 	// Number to tune
 	int num_paths = 20;
 
 	// Sample paths
 	samplePaths(num_paths);
 
+  // Initialize Vectors
 	std::vector<double> free_path_length_vec;
 	std::vector<double> dist_to_goal_vec;
 	std::vector<double> clearance_vec;
 
-	// save the range of each variable for normalize in the scoring function
+	// Save the range of each variable for normalize in the scoring function
 	float max_free_path_length = 0;
 	float min_dist_to_goal = 100;
 	float max_clearance = 0;
-  int i = {0};
-
+  int i = {0}; // iter for debug purposes
 
 	for (auto &path : Paths_)
 	{
@@ -454,32 +476,32 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
     // TODO : Not accurate, should fix to global
     path.dist_to_goal = goal_loc.norm() - abs(odom_loc_.norm() - odom_start_loc_.norm());
 
-    //std::cout << "\n\npath radius: " << path.radius << std::endl;
-    //std::cout << "path alpha: " << path.alpha << std::endl;
-    //std::cout << "free path length before predictCollisions: " << path.free_path_length << std::endl;
-    //std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
+    std::cout << "\n\npath radius: " << path.radius << std::endl;
+    std::cout << "path alpha: " << path.alpha << std::endl;
+    std::cout << "free path length before (predictCollisions): " << path.free_path_length << std::endl;
+    std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
 
 		predictCollisions(path);
 
-    //std::cout << "[Iter: " << i << "]"
-    //          << "\ninitial free path length: " << path.free_path_length
-    //          << "\nbest_alpha: " << path.alpha 
-    //          << "\nbest_beta: " << path.beta << std::endl;
+    std::cout << "[Iter: " << i << "]"
+              << "\ninitial free path length: " << path.free_path_length
+              << "\nbest_alpha: " << path.alpha 
+              << "\nbest_beta: " << path.beta << std::endl;
 
 		trimPath(path, goal_loc);
 
     // dist to goal for all paths
     path.dist_to_goal = (goal_loc - path.obstruction).norm();
 
-    //std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
-    //std::cout << "trimmed free path length: " << path.free_path_length << std::endl;
+    std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
+    std::cout << "trimmed free path length: " << path.free_path_length << std::endl;
 
 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
-    //std::cout << "max_free_path_length: " << max_free_path_length << std::endl;
+    std::cout << "max_free_path_length: " << max_free_path_length << std::endl;
 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
-    //std::cout << "min_dist_to_goal: " << min_dist_to_goal << std::endl;
+    std::cout << "min_dist_to_goal: " << min_dist_to_goal << std::endl;
 		max_clearance = std::max(path.clearance, max_clearance);
-    //std::cout << "max_clearance: " << max_clearance << std::endl;
+    std::cout << "max_clearance: " << max_clearance << std::endl;
 
     // TODO : Variables HERE TWICE?
 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
@@ -576,6 +598,10 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
 
 void Navigation::Run() {
 
+  // Clear previous visualizations.
+  visualization::ClearVisualizationMsg(local_viz_msg_);
+  visualization::ClearVisualizationMsg(global_viz_msg_);
+
   //auto millisec_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
   //auto sec_since_epoch = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
   //std::cout << "millisec_since_epoch: " << millisec_since_epoch
@@ -588,46 +614,44 @@ void Navigation::Run() {
   double dist_traveled = abs(odom_loc_.norm() - odom_start_loc_.norm());
   
   // MESSAGE DATA
-  std::cout << "========"
-            << "\n[Time Step] " << dt << "s"
-             << "\n[Odom Start Location] x: " << odom_start_loc_.x() << "m; y: " << odom_start_loc_.y() << "m"
-             << "\n[Odom Start Angle] " << odom_start_angle_ << " rad"
-             << "\n[Odom Location] x: " << odom_loc_.x() << "m; y: " << odom_loc_.y() << "m"
-             << "\n[Dist Traveled] " << dist_traveled << "m"
-             << "\n[Odom Angle] " << odom_angle_ << " rad"
-             << "\n[Robot Location] x: " << robot_loc_.x() << "m; y: " << robot_loc_.y() << "m"
-             << "\n[Robot Angle] " << robot_angle_ << " rad"
-             << "\n[Robot Velocity] dx: " << robot_vel_.x() << "m/s; dy: " << robot_vel_.y() << "m/s"
-             << std::endl;
+  // std::cout << "========"
+  //           << "\n[Time Step] " << dt << "s"
+  //            << "\n[Odom Start Location] x: " << odom_start_loc_.x() << "m; y: " << odom_start_loc_.y() << "m"
+  //            << "\n[Odom Start Angle] " << odom_start_angle_ << " rad"
+  //            << "\n[Odom Location] x: " << odom_loc_.x() << "m; y: " << odom_loc_.y() << "m"
+  //            << "\n[Dist Traveled] " << dist_traveled << "m"
+  //            << "\n[Odom Angle] " << odom_angle_ << " rad"
+  //            << "\n[Robot Location] x: " << robot_loc_.x() << "m; y: " << robot_loc_.y() << "m"
+  //            << "\n[Robot Angle] " << robot_angle_ << " rad"
+  //            << "\n[Robot Velocity] dx: " << robot_vel_.x() << "m/s; dy: " << robot_vel_.y() << "m/s"
+  //            << std::endl;
 
-  //double p1x = 0;
-  //double p1y = 0;
-  //float p2x = 4.00;
-  //float p2y = -0.2;
 
-  //double arc_l = arc_length(p1x, p1y, p2x, p2y);
-  //double r = arc_radius(p1x, p1y, p2x, p2y);
   
   // samplePaths(5);
 
-  VisObstacles();
-
   Vector2f goal;
-  goal << 4.00, 0.0;
+  goal << 6.00, 2;
 
-  PathOption BestPath = getBestPath(goal);
+  double p1x = 0;
+  double p1y = 0;
+  float p2x = goal.x();
+  float p2y = goal.y();
+
+  double arc_l = arc_length(p1x, p1y, p2x, p2y);
+  double r = arc_radius(p1x, p1y, p2x, p2y);
+
+  //PathOption BestPath = getBestPath(goal);
   
 
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length, dist_traveled);
+  double vel_command =  car_.TOC(dt, robot_vel_.norm(), arc_l, dist_traveled);
   std::cout << "============================="
-            << "\nBestPath FPL: " << BestPath.free_path_length 
+            << "\nBestPath FPL: " << arc_l
             << "\n vel_command: " << vel_command << std::endl;
 
   // ======================================================================================================
 
-  // Clear previous visualizations.
-  visualization::ClearVisualizationMsg(local_viz_msg_);
-  visualization::ClearVisualizationMsg(global_viz_msg_);
+
 
   // If odometry has not been initialized, we can't do anything.
   if (!odom_initialized_) return;
@@ -641,11 +665,23 @@ void Navigation::Run() {
 
   // Draw Cross
   Vector2f p2;
-  p2 << (odom_start_loc_.x()+4) - odom_loc_.x(), (odom_start_loc_.y()+1) - odom_loc_.y();
+  p2 << (odom_start_loc_.x()+goal.x()) - odom_loc_.x(), (odom_start_loc_.y()+goal.y()) - odom_loc_.y();
 
   visualization::DrawCross(goal,0.5,0x3449eb,local_viz_msg_);
+  //visualization::DrawCross(BestPath.end_point,0.25,0x31a851,local_viz_msg_);   // green
+  //visualization::DrawCross(BestPath.obstruction,0.25,0x731616,local_viz_msg_); // red
 
-  drive_msg_.curvature = BestPath.curvature;
+  // for (const auto &obs : ObstacleList_)
+  // {
+  //   std::cout << Odom2BaseLink(obs.loc) << std::endl;
+  //   //visualization::DrawCross(Odom2BaseLink(obs.loc), 0.05, 0x3449eb, local_viz_msg_);
+  // }
+
+
+  //visualization::DrawPathOption(BestPath.curvature, BestPath.dist_to_goal, 0.00, local_viz_msg_);
+  visualization::DrawPathOption(1/r, arc_l, 0.00, local_viz_msg_);
+
+  drive_msg_.curvature = 1/r;
   drive_msg_.velocity = vel_command;
   
   // Add timestamps to all messages.
