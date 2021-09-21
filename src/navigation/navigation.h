@@ -187,7 +187,7 @@ class Navigation {
   // Definition of Car
   Car car_;
 
-  Odometry LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega);
+  Odometry LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega, float start_time);
 
   
 
