@@ -602,7 +602,6 @@ void Navigation::Run() {
   // The latest observed point cloud is accessible via "point_cloud_"
   
   // Eventually, you will have to set the control values to issue drive commands:
-
   // Draw Cross
   Vector2f p2;
   p2 << (odom_start_loc_.x()+goal.x()) - odom_loc_.x(), (odom_start_loc_.y()+goal.y()) - odom_loc_.y();
