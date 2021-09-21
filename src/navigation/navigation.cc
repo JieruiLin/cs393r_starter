@@ -571,7 +571,7 @@ void Navigation::Run() {
   // samplePaths(5);
 
   Vector2f goal;
-  goal << 5.00, 0;
+  goal << 7.00, 1.00;
 
   PathOption BestPath = getBestPath(goal);
   //Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
