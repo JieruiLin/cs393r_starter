@@ -535,6 +535,9 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
 
 void Navigation::Run() {
 
+  // If odometry has not been initialized, we can't do anything.
+  if (!odom_initialized_) return;
+
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
   visualization::ClearVisualizationMsg(global_viz_msg_);
@@ -595,8 +598,6 @@ void Navigation::Run() {
 
 
 
-  // If odometry has not been initialized, we can't do anything.
-  if (!odom_initialized_) return;
 
   // The control iteration goes here. 
   // Feel free to make helper functions to structure the control appropriately.
