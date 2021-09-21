@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "eigen3/Eigen/Dense"
+#include "car.h"
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
@@ -36,9 +37,42 @@ struct PathOption {
   float curvature;
   float clearance;
   float free_path_length;
+  float dist_to_goal;
+  float cost;
+  float alpha;
+  float beta;
+  float radius;
+  Eigen::Vector2f goal;
   Eigen::Vector2f obstruction;
   Eigen::Vector2f closest_point;
+  Eigen::Vector2f end_point;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+};
+
+struct Obstacle {
+  Eigen::Vector2f loc;
+  double timestamp;
+};
+
+// struct BestPath {
+//   float curvature;
+//   float clearance;
+//   float free_path_length;
+//   float dist_to_goal;
+//   float cost;
+//   Eigen::Vector2f obstruction;
+//   Eigen::Vector2f closest_point;
+//   Eigen::Vector2f end_point;
+//   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+// };
+
+struct Odometry {
+  double x;
+  double y;
+  double theta;
+  double vx;
+  double vy;
+  double omega;
 };
 
 class Navigation {
@@ -65,7 +99,34 @@ class Navigation {
   // Used to set the next target pose.
   void SetNavGoal(const Eigen::Vector2f& loc, float angle);
 
+  void one_d_toc_calc(float x_total);
+
+  // Assignment 1 Additions
+  float TOC(float dt, float vel_current, float arc_length, float dist_traveled);
+
+  
+
+  
+  // Transform from local to global
+  Eigen::Vector2f BaseLink2Odom(Eigen::Vector2f p);
+
+  // Transform from global to local
+  Eigen::Vector2f Odom2BaseLink(Eigen::Vector2f p);
+
  private:
+
+  /* ------- Local Planning ---------*/
+
+  // List of all obstacles
+  std::list<Obstacle> ObstacleList_;
+  // List of all paths
+  std::vector<PathOption> Paths_;
+  // free path length weight
+  float free_path_length_weight_;
+  // dist to goal weight
+  float distance_to_goal_weight_;
+  // clearance weight
+  float clearance_weight_;
 
   // Whether odometry has been initialized.
   bool odom_initialized_;
@@ -96,6 +157,40 @@ class Navigation {
   Eigen::Vector2f nav_goal_loc_;
   // Navigation goal angle.
   float nav_goal_angle_;
+
+  std::vector<std::vector<double>> record_motion_;
+
+  // Frank Additions
+  // rotation matrix
+  Eigen::Matrix2f R_odom2base_;
+
+  // Visualization of Obstacles
+  void VisObstacles();
+
+  // Sample Paths
+  void samplePaths(float num);
+
+  void trimPath(PathOption &path, Eigen::Vector2f goal);
+
+  void predictCollisions(PathOption& path);
+
+  void calculateClearance(PathOption& path);
+
+  Eigen::Vector2f P_center;
+
+  PathOption getBestPath(Eigen::Vector2f goal_loc);
+
+  //std::vector<float> free_path_length_vec;
+
+  //std::vector<float> dist_to_goal_vec;
+
+  // Definition of Car
+  Car car_;
+
+  Odometry LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega, float start_time);
+
+  
+
 };
 
 }  // namespace navigation
