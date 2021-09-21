@@ -184,13 +184,13 @@ void Navigation::samplePaths(float num) {
     // put initialized path option to Paths list
     Paths_.push_back(PathOption {curvature, // curvature
                                           0,		          // clearance
-                                          1000,		          // free path length
+                                          1000,		        // free path length
                                           0,		          // distance to goal
                                           0,		          // cost
                                           0,              // alpha
                                           0,              // beta
                                           1/curvature,    // radius
-										  {0,0},			//goal
+										                      {0,0},			    //goal
                                           {0,0},	        // obstruction point
                                           {0,0},	        // closest point
                                           {0,0}});	      // end point of wheel base
@@ -479,27 +479,33 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 	return BestPath;
 }
 
-Odometry Navigation::LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega){
+Odometry Navigation::LatencyCompensation(float observation_duration_, float actuation_duration_, float dt, float x, float y, float theta, float xdot, float ydot, float omega, float start_time){
 
     float previous_observation_time_ = -2.0;
     float system_delay_ = observation_duration_ + actuation_duration_; // predefined durations
-    
+    std::cout << "system delay: " << system_delay_ << std::endl;
     Odometry odom_location_;
 
     odom_location_.x = odom_start_loc_.x(); // TODO : not needed?
     odom_location_.y = odom_start_loc_.y(); // TODO : not needed?
     odom_location_.theta = theta; 
 
-    previous_observation_time_ = ros::Time::now().toSec() - observation_duration_; // May need to add function for ros::Time::now().toSec()
-    
+    previous_observation_time_ = (ros::Time::now().toSec() - start_time) - observation_duration_; // May need to add function for ros::Time::now().toSec()
+    std::cout << "Previous observation time: " << previous_observation_time_ << endl;
+
+    //cutoff checks that inputs occurred after the latest observation time
     float cutoff_time = previous_observation_time_ - actuation_duration_;
-    float record_cutoff_time = ros::Time::now().toSec() - actuation_duration_;
+    float record_cutoff_time = (ros::Time::now().toSec() - start_time) - actuation_duration_;
+
+    std::cout << " cutoff time: " << cutoff_time
+               << "; record cutoff time: " << record_cutoff_time 
+               << std::endl;
 
     odom_location_.vx = xdot;
     odom_location_.vy = ydot;
     odom_location_.omega = omega;
 
-    record_motion_.push_back(std::vector<double> {double(xdot), double(ydot), double(omega), ros::Time::now().toSec()});
+    record_motion_.push_back(std::vector<double> {double(xdot), double(ydot), double(omega), (ros::Time::now().toSec() - start_time)});
 
     Odometry prediction = odom_location_;
     
@@ -530,11 +536,12 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
             prediction.theta += one_record[2]*dt;
         }
     }
+    std::cout << "prediction vx, vy: " << prediction.vx << ", " << prediction.vy << std::endl;
     return prediction;
 }
 
 void Navigation::Run() {
-
+  auto start_time = ros::Time::now().toSec();
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
   visualization::ClearVisualizationMsg(global_viz_msg_);
@@ -578,8 +585,7 @@ void Navigation::Run() {
   //float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
   //std::cout << "velocity: " <<  predict_vel << std::endl;
 
-  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
-
+  Odometry prediction = LatencyCompensation(0.1, 0.2, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_, start_time);
 
   float vx = prediction.vx;
   float vy = prediction.vy;
