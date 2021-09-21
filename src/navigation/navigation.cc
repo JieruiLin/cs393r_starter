@@ -242,7 +242,6 @@ void Navigation::predictCollisions(PathOption& path)
 		float min_fpl = 1000;
 		for (const auto &obs : ObstacleList_)
 		{
-			// tramsform from global to local
 			Vector2f obs_loc = Odom2BaseLink(obs.loc);
 			if (obs_loc.x() > 0 && obs_loc.y() > pmax.y() && obs_loc.y() < pmiddle.y()){
 				if (obs_loc.x() < min_fpl){
