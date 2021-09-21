@@ -522,6 +522,9 @@ Odometry Navigation::LatencyCompensation(float observation_duration_, float actu
 
 void Navigation::Run() {
 
+  // If odometry has not been initialized, we can't do anything.
+  if (!odom_initialized_) return;
+  VisObstacles();
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
   visualization::ClearVisualizationMsg(global_viz_msg_);
@@ -555,7 +558,7 @@ void Navigation::Run() {
   // samplePaths(5);
 
   Vector2f goal;
-  goal << 5.00, 0;
+  goal << 7.00, 1.00;
 
   PathOption BestPath = getBestPath(goal);
   //Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
@@ -565,7 +568,15 @@ void Navigation::Run() {
   //float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
   //std::cout << "velocity: " <<  predict_vel << std::endl;
 
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length);
+  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
+
+
+  float vx = prediction.vx;
+  float vy = prediction.vy;
+  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
+  std::cout << "velocity: " <<  predict_vel << std::endl;
+
+  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length); //dist_traveled)
   std::cout << "============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
             << "\n vel_command: " << vel_command << std::endl;
@@ -574,8 +585,6 @@ void Navigation::Run() {
 
 
 
-  // If odometry has not been initialized, we can't do anything.
-  if (!odom_initialized_) return;
 
   // The control iteration goes here. 
   // Feel free to make helper functions to structure the control appropriately.
