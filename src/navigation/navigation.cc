@@ -183,13 +183,10 @@ void Navigation::samplePaths(float num) {
     float curvature = -curvature_max_ + i*curve_increment;
     // put initialized path option to Paths list
     Paths_.push_back(PathOption {curvature, // curvature
-<<<<<<< HEAD
                                           0,		          // clearance
                                           1000,		        // free path length
-=======
                                           1000,		          // clearance
                                           1000,		          // free path length
->>>>>>> d86ccc926d13c170a7a448c111b9039dbda87cf3
                                           0,		          // distance to goal
                                           0,		          // cost
                                           0,              // alpha
