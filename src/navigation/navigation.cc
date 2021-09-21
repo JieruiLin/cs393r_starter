@@ -182,7 +182,7 @@ void Navigation::samplePaths(float num) {
     float curvature = -curvature_max_ + i*curve_increment;
     // put initialized path option to Paths list
     Paths_.push_back(PathOption {curvature, // curvature
-                                          0,		          // clearance
+                                          1000,		          // clearance
                                           1000,		          // free path length
                                           0,		          // distance to goal
                                           0,		          // cost
@@ -308,13 +308,6 @@ void Navigation::predictCollisions(PathOption& path)
 // clearance is defined as the minimum distance from any point on the free path length to
 void Navigation::calculateClearance(PathOption &path){
 	float radius = 1/path.curvature;
-  if (radius < 0){
-    for (auto &obs:ObstacleList_)
-    {
-      obs.loc.y() = -obs.loc.y();
-    }
-    radius = -radius;
-  }
 	float alpha = path.free_path_length/radius;
 	float min_clearance = 1000;
 
@@ -335,15 +328,6 @@ void Navigation::calculateClearance(PathOption &path){
 	}
 	path.clearance = min_clearance;
 	path.closest_point = closest_point;
-
-  radius = 1/path.curvature;
-  if (radius < 0){
-    for (auto &obs:ObstacleList_)
-    {
-      obs.loc.y() = -obs.loc.y();
-    }
-    path.closest_point.y() = -path.closest_point.y();
-  }
 }
 
 // Frank - ArcRadius Calcs
@@ -435,6 +419,8 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 		predictCollisions(path);
 		// update free path length and obstruction point for each path
 		trimPath(path, goal_loc);
+		// calcualte clearance
+		calculateClearance(path);
 
 		// dist to goal for all paths
 		path.dist_to_goal = (goal_loc - path.obstruction).norm();
@@ -452,7 +438,9 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 	
 		free_path_length_vec.push_back(path.free_path_length);
 		dist_to_goal_vec.push_back(path.dist_to_goal);
+		clearance_vec.push_back(path.clearance);
     i++;
+
 	}
 
 
@@ -466,9 +454,11 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 		// the smaller dist_to_goal, the better
 		float dist_to_goal_cost =  (dist_to_goal_vec.at(i)/min_dist_to_goal) * 1.0;
 
-    // TODO : add clearance_padded_cost
-		// float cost = free_path_length_cost + clearance_padded_cost + dist_to_goal_cost;
-    float cost = free_path_length_cost + dist_to_goal_cost;
+
+		float clearance_cost = -(clearance_vec.at(i)/max_clearance) * clearance_weight_;
+    // add clearance_padded_cost
+		float cost = free_path_length_cost + clearance_cost + dist_to_goal_cost;
+    //std::cout << "cost: " << cost << std::endl;
 
 		if (cost < min_cost) 
     {
