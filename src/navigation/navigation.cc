@@ -574,20 +574,18 @@ void Navigation::Run() {
 
   // Odometry prediction = LatencyCompensation(0.1, 0.3, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
 
+  Odometry prediction = LatencyCompensation(0.1, 0.2, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_, start_time);
 
+  float vx = prediction.vx;
+  float vy = prediction.vy;
+  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
 
-  // float vx = prediction.vx;
-  // float vy = prediction.vy;
-  // float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
-  
+  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length); 
+ 
    std::cout << "\n\n============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
             << "\nBestPath Dist to Goal: " << BestPath.dist_to_goal
-            << "\npredict_vel: " << robot_vel_.norm() << std::endl;
-
-  Odometry prediction = LatencyCompensation(0.1, 0.2, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_, start_time);
-
-  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length); 
+            << "\npredict_vel: " << predict_vel << std::endl;
 
   std::cout << "vel_command: " <<  vel_command << std::endl;
 
