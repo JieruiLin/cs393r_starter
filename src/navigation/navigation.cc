@@ -83,8 +83,8 @@ const Vector2f porigin(0,0);
 
 
 // weight in scoring function
-float free_path_length_weight_ = 1.0;
-float dist_to_goal_weight_ = 1.0;
+//float free_path_length_weight_ {1.0};
+//float dist_to_goal_weight_ {1.0};
 
 
 
@@ -167,7 +167,6 @@ void Navigation::VisObstacles(){
 	for (const auto &obs : ObstacleList_)
 	{
     std::cout << Odom2BaseLink(obs.loc) << std::endl;
-		//visualization::DrawCross(Vector2f (3.00,5.00), 0.5, 0x3449eb, local_viz_msg_);
 	}
 }
 
@@ -190,7 +189,7 @@ void Navigation::samplePaths(float num) {
                                           0,              // alpha
                                           0,              // beta
                                           1/curvature,    // radius
-										  {0,0},			//goal
+										                      {0,0},			//goal
                                           {0,0},	        // obstruction point
                                           {0,0},	        // closest point
                                           {0,0}});	      // end point of wheel base
@@ -405,7 +404,7 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 {
   PathOption BestPath;
 
-  std::cout << "******** getBestPath *********" << std::endl;
+  //std::cout << "******** getBestPath *********" << std::endl;
 	// Number to tune
 	int num_paths = 20;
 
@@ -421,24 +420,29 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 	float max_free_path_length = 0;
 	float min_dist_to_goal = 100;
 	float max_clearance = 0;
-  	int i = {0}; // iter for debug purposes
+  int i = {0}; // iter for debug purposes
 
 	for (auto &path : Paths_)
 	{
 		// set goal loc to each path
 		path.goal = goal_loc;
+    
+    //std::cout << "==================" << std::endl;
+    //std::cout << "[Iter: " << i << " ]" << std::endl;
+    //std::cout << "free path length: " << path.free_path_length << std::endl;
 		// update free path length and obstruction point for each path
+
 		predictCollisions(path);
 		// update free path length and obstruction point for each path
 		trimPath(path, goal_loc);
 
 		// dist to goal for all paths
 		path.dist_to_goal = (goal_loc - path.obstruction).norm();
+    
 
-	/*
-    std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
-    std::cout << "trimmed free path length: " << path.free_path_length << std::endl;
-	*/
+    //std::cout << "path dist to goal: " << path.dist_to_goal << std::endl;
+    //std::cout << "trimmed free path length: " << path.free_path_length << std::endl;
+    
 		max_free_path_length = std::max(path.free_path_length, max_free_path_length);
     //std::cout << "max_free_path_length: " << max_free_path_length << std::endl;
 		min_dist_to_goal = std::min(path.dist_to_goal, min_dist_to_goal);
@@ -448,34 +452,31 @@ PathOption Navigation::getBestPath(Vector2f goal_loc)
 	
 		free_path_length_vec.push_back(path.free_path_length);
 		dist_to_goal_vec.push_back(path.dist_to_goal);
-    	i++;
+    i++;
 	}
 
 
-    float min_cost {1000};
+  float min_cost {1000};
 
 	for (int i = 0; i < num_paths; i++)
 	{
     // the longer fpl, the better
-		float free_path_length_cost = -(free_path_length_vec.at(i)/max_free_path_length) * free_path_length_weight_;
-    //std::cout << "fpl_cost: " << free_path_length_cost << std::endl;
+		float free_path_length_cost = -(free_path_length_vec.at(i)/max_free_path_length) * 1.0;
 
 		// the smaller dist_to_goal, the better
-		float dist_to_goal_cost =  (dist_to_goal_vec.at(i)/min_dist_to_goal) * dist_to_goal_weight_;
-    //std::cout << "dist_to_goal_cost: " << dist_to_goal << std::endl;
+		float dist_to_goal_cost =  (dist_to_goal_vec.at(i)/min_dist_to_goal) * 1.0;
 
     // TODO : add clearance_padded_cost
 		// float cost = free_path_length_cost + clearance_padded_cost + dist_to_goal_cost;
-    	float cost = free_path_length_cost + dist_to_goal_cost;
-    //std::cout << "cost: " << cost << std::endl;
+    float cost = free_path_length_cost + dist_to_goal_cost;
 
 		if (cost < min_cost) 
     {
 			min_cost = cost;
 			BestPath = Paths_.at(i);
-			BestPath.cost = cost;
 		}
 	}
+
 	return BestPath;
 }
 
@@ -537,16 +538,10 @@ void Navigation::Run() {
 
   // If odometry has not been initialized, we can't do anything.
   if (!odom_initialized_) return;
-  VisObstacles();
+  //VisObstacles();
   // Clear previous visualizations.
   visualization::ClearVisualizationMsg(local_viz_msg_);
   visualization::ClearVisualizationMsg(global_viz_msg_);
-
-  //auto millisec_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-  //auto sec_since_epoch = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-  //std::cout << "millisec_since_epoch: " << millisec_since_epoch
-  //          << "\nsec_since_epoch: " << sec_since_epoch
-  //          << std::endl;
 
   // This function gets called 20 times a second to form the control loop.
 
@@ -571,28 +566,25 @@ void Navigation::Run() {
   // samplePaths(5);
 
   Vector2f goal;
-  goal << 7.00, 1.00;
+  goal << 5.00, -0.5;
 
   PathOption BestPath = getBestPath(goal);
-  //Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
 
-  //float vx = prediction.vx;
-  //float vy = prediction.vy;
-  //float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
-  //std::cout << "velocity: " <<  predict_vel << std::endl;
-
-  Odometry prediction = LatencyCompensation(0.1, 0.1, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
+  // Odometry prediction = LatencyCompensation(0.1, 0.3, dt, odom_loc_.x(), odom_loc_.y(), odom_angle_, robot_vel_.x(), robot_vel_.y(), robot_omega_);
 
 
-  float vx = prediction.vx;
-  float vy = prediction.vy;
-  float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
-  std::cout << "velocity: " <<  predict_vel << std::endl;
-
-  double vel_command =  car_.TOC(dt, predict_vel, BestPath.free_path_length); //dist_traveled)
-  std::cout << "============================="
+  // float vx = prediction.vx;
+  // float vy = prediction.vy;
+  // float predict_vel = sqrt(pow(vx,2)+pow(vy,2));
+  
+   std::cout << "\n\n============================="
             << "\nBestPath FPL: " << BestPath.free_path_length
-            << "\n vel_command: " << vel_command << std::endl;
+            << "\nBestPath Dist to Goal: " << BestPath.dist_to_goal
+            << "\npredict_vel: " << robot_vel_.norm() << std::endl;
+
+  double vel_command =  car_.TOC(dt, robot_vel_.norm(), BestPath.free_path_length); 
+
+  std::cout << "vel_command: " <<  vel_command << std::endl;
 
   // ======================================================================================================
 
@@ -616,7 +608,7 @@ void Navigation::Run() {
 
   visualization::DrawPathOption(BestPath.curvature, BestPath.free_path_length, 0.00, local_viz_msg_);
 
- std::cout << "curvature: " <<  BestPath.curvature << std::endl;
+  std::cout << "curvature: " <<  BestPath.curvature << std::endl;
   drive_msg_.curvature = BestPath.curvature;
   drive_msg_.velocity = vel_command;
   
