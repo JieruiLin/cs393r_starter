@@ -200,6 +200,10 @@ void Navigation::samplePaths(float num) {
 void Navigation::trimPath(PathOption &path, Vector2f goal)
 {
 	float radius = 1/path.curvature;
+  if (path.curvature < 0){
+    radius = -radius;
+    goal.y() = - goal.y();
+  }
 	Vector2f rotation_center = {0, radius};
 
 	// goal angle with respect to the y axis
@@ -213,7 +217,14 @@ void Navigation::trimPath(PathOption &path, Vector2f goal)
 	{
 		path.free_path_length = trim_path_length;
 		path.obstruction = rotation_center + radius * goal/goal.norm();
-	} 
+    if (path.curvature < 0){
+      path.obstruction.y() = - path.obstruction.y();
+    }
+	}
+  if (path.curvature < 0){
+    goal.y() = - goal.y();
+  } 
+
 }
 
 
@@ -221,11 +232,11 @@ void Navigation::trimPath(PathOption &path, Vector2f goal)
 void Navigation::predictCollisions(PathOption& path)
 {
 	//std::cout << "======= predictCollisions =======" << std::endl;
-	
 
 	// Obstruction point (without considering obstacles)
-	float fpl = abs(M_PI/path.curvature);
-	Vector2f p_obstruction(0, 2/path.curvature);
+  float radius = 1/path.curvature;
+	float fpl = abs(M_PI * radius);
+	Vector2f p_obstruction(0, 2*radius);
 
 	if (path.curvature == 0){
 		float min_fpl = 1000;
@@ -242,9 +253,9 @@ void Navigation::predictCollisions(PathOption& path)
 			}
 		}
 	}else{
-		//std::cout << "Entered FPL Arc Calcs" << std::endl;
-		float radius = 1/path.curvature;
-	
+    if (path.curvature < 0){
+      radius = -radius;
+    }
 		Vector2f turning_center(0,radius); // rotation center
 
 		// turning radius of different points on the car
@@ -258,6 +269,9 @@ void Navigation::predictCollisions(PathOption& path)
 			// tramsform from global to local
 			Vector2f obs_loc = Odom2BaseLink(obs.loc);
 
+      if(path.curvature<0){
+        obs_loc.y() = - obs_loc.y();
+      }
 			// distance to obstacle from turning center
 			float r_obstacle = (turning_center - obs_loc).norm();  
 
@@ -293,9 +307,15 @@ void Navigation::predictCollisions(PathOption& path)
 				{
 					fpl = fpl_current;
 					p_obstruction = obs_loc;
+          // make sure p_obstruction copies obs_loc
+          if (path.curvature < 0){
+            p_obstruction.y() = -p_obstruction.y();
+          }
 				}
 			}
-
+      if(path.curvature<0){
+        obs_loc.y() = - obs_loc.y();
+      }
   	}
 
 	path.obstruction = p_obstruction;
@@ -308,26 +328,45 @@ void Navigation::predictCollisions(PathOption& path)
 // clearance is defined as the minimum distance from any point on the free path length to
 void Navigation::calculateClearance(PathOption &path){
 	float radius = 1/path.curvature;
-	float alpha = path.free_path_length/radius;
 	float min_clearance = 1000;
-
-	Vector2f turning_center(0,radius);
-	Vector2f closest_point(0,0);
-	for (const auto &obs : ObstacleList_){
-		Vector2f obs_point = Odom2BaseLink(obs.loc);
-		float r_obstacle = (turning_center - obs.loc).norm();
-		// check if obstacle is inside the cone defined by RC, start location and final location
-		float angle_obstacle = acos(obs_point.x()/r_obstacle);
-		if (angle_obstacle < alpha){
-			float clearance = abs((turning_center-obs_point).norm() - abs(radius));
-			if (clearance < min_clearance){
-				min_clearance = clearance;
-				closest_point = obs_point;
-			}
+  if (path.curvature == 0){
+    for (const auto &obs : ObstacleList_){
+		  Vector2f obs_loc = Odom2BaseLink(obs.loc);
+      if (obs_loc.x() > 0 && obs_loc.x() < path.free_path_length){
+        float clearance = abs(obs_loc.y());
+        if (clearance < min_clearance){
+          min_clearance = clearance;
+        }
+      }
 		}
-	}
-	path.clearance = min_clearance;
-	path.closest_point = closest_point;
+    path.clearance = min_clearance;
+	}else{
+    if (path.curvature<0){
+      radius = -radius;
+    }
+    float alpha = path.free_path_length/radius;
+    Vector2f turning_center(0,radius);
+    Vector2f closest_point(0,0);
+    for (const auto &obs : ObstacleList_){
+      Vector2f obs_loc = Odom2BaseLink(obs.loc);
+      if (path.curvature<0){
+        obs_loc.y() = -obs_loc.y();
+      }
+      float r_obstacle = (turning_center - obs_loc).norm();
+      // check if obstacle is inside the cone defined by RC, start location and final location
+      float angle_obstacle = acos(obs_loc.x()/r_obstacle);
+      if (angle_obstacle < alpha){
+        float clearance = abs((turning_center-obs_loc).norm() - abs(radius));
+        if (clearance < min_clearance){
+          min_clearance = clearance;
+        }
+      }
+      if(path.curvature<0){
+        obs_loc.y() = - obs_loc.y();
+      }
+    }
+    path.clearance = min_clearance;
+  }
 }
 
 // Frank - ArcRadius Calcs
